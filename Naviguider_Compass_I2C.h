@@ -16,15 +16,35 @@
  */
 
 
+#ifndef __NAVIGUIDER_COMPASS_I2C_H__
+#define __NAVIGUIDER_COMPASS_I2C_H__
 
 
-
-
-
-#ifndef __NAVIGUIDER_I2C_H__
-#define __NAVIGUIDER_I2C_H__
-
+#include <Arduino.h>
 #include <Wire.h>
+
+
+/* Class Declaration */
+class NaviguiderCompass {
+
+  public:
+      NaviguiderCompass();
+
+      // Initialize the sensor
+      bool begin(TwoWire &wirePort = Wire, uint8_t address = NAVIGUIDER_ADDRESS);
+
+      // Read accelerometer data
+      bool readAccelerometer(int16_t &x, int16_t &y, int16_t &z, uint8_t &accuracy);
+
+      // Add additional methods HERE for other sensors as needed
+
+  private:
+      TwoWire *_wire;     // I2C port
+      uint8_t _i2cAddress; // I2C address of the device
+      
+};
+
+
 
 /* I2C Addresses */
 #define NAVIGUIDER_ADDRESS (0x28)           // The 7 Bit slave Address
@@ -183,3 +203,7 @@
  */
 
 
+
+
+
+#endif    //ends the __NAVIGUIDER_COMPASS_I2C_H__ section
