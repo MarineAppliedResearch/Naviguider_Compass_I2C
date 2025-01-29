@@ -37,7 +37,7 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
         return false; // Failed to initialize I2C device
     }
 	
-	bool returnVal = false;
+	bool returnVal = true;
 	
 	// Get Naviguider Fusion Co-processor Device ID
 	fusionCoprocessor = getFusionCoprocessor();
@@ -46,11 +46,13 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 	pinMode(2, INPUT); // Set D2 as input for interrupt
     attachInterrupt(digitalPinToInterrupt(2), NaviguiderCompass::interruptHandler, FALLING); // Attach interrupt to pin 2
 	
+	// Set the MAG, ACCEL, and GYRO Sensor Rates
+	setSensorRates();
+	
 	// Start the CPU
 	startCPU();
 	
-	// Set the MAG, ACCEL, and GYRO Sensor Rates
-	setSensorRates();
+	
 	
 	// Configure the Algorithm Control Register
 	configAlgorithmControlRegister();
@@ -63,7 +65,15 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 	#endif
 	
 	// Enable events
-	////enableEvents();
+	// Example: Enable quaternion, error, and CPU reset events
+    configureEnabledEventsRegister();
+	
+	// Read the enabled events register
+	enabledEventsValues = readEnabledEventsRegister();
+	
+	#ifdef DEBUG
+	printEnabledEventsValues();
+	#endif
 	
 	
 	
@@ -77,6 +87,136 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 }
 
 
+void NaviguiderCompass::readSensors() {
+	int16_t ax, ay, az;
+	uint8_t aaccuracy;
+	readAccelerometer(ax, ay, az, aaccuracy);
+	SerialUSB.print("    readAccelerometer x: "); SerialUSB.println(ax);
+	SerialUSB.print("    readAccelerometer y: "); SerialUSB.println(ay);
+	SerialUSB.print("    readAccelerometer z: "); SerialUSB.println(az);
+	SerialUSB.print("    readAccelerometer a: "); SerialUSB.println(aaccuracy);
+	
+	int16_t mx, my, mz;
+	uint8_t maccuracy;
+	readMagnometer(mx, my, mz, maccuracy);
+	SerialUSB.print("    readMagnometer x: "); SerialUSB.println(mx);
+	SerialUSB.print("    readMagnometer y: "); SerialUSB.println(my);
+	SerialUSB.print("    readMagnometer z: "); SerialUSB.println(mz);
+	SerialUSB.print("    readMagnometer a: "); SerialUSB.println(maccuracy);
+	
+    uint32_t bytesRead;
+
+    // Read the FIFO buffer
+    bytesRead = readFifo();
+
+    if (bytesRead > 0) {
+        // Successfully read data from FIFO
+        SerialUSB.print("Read ");
+        SerialUSB.print(bytesRead);
+        SerialUSB.println(" bytes from the FIFO:");
+
+        // Parse the FIFO data into events
+        SensorEventsStruct events = parseFifo(bytesRead);
+
+        // Handle each event as needed
+        if (events.CPUReset) {
+            SerialUSB.println("CPU Reset Event Detected!");
+            // Handle CPU reset logic
+        }
+        if (events.Error) {
+            SerialUSB.println("Error Event Detected!");
+            // Handle error logic
+        }
+        if (events.QuaternionResult) {
+            SerialUSB.println("Quaternion Result Event Detected!");
+            // Handle quaternion result logic
+        }
+        if (events.MagResult) {
+            SerialUSB.println("Magnetometer Result Event Detected!");
+            // Handle magnetometer result logic
+        }
+        if (events.AccelResult) {
+            SerialUSB.println("Accelerometer Result Event Detected!");
+            // Handle accelerometer result logic
+        }
+        if (events.GyroResult) {
+            SerialUSB.println("Gyroscope Result Event Detected!");
+            // Handle gyroscope result logic
+        }
+
+    } else {
+        // No data or read error
+        SerialUSB.println("Failed to read from FIFO or no data available.");
+    }
+	
+	
+
+    // Set the interrupt flag to false now that we've processed the event and sensor data
+    interruptFlag = false;
+}
+
+
+// Read the fifo event register
+uint32_t NaviguiderCompass::readFifo() {
+    uint16_t bytesAvailable = 0;
+
+    // Read the number of bytes available in the FIFO
+    uint8_t reg = NAVIGUIDER_REG_FIFO_BYTES_REMAINING_LSB; // FIFO bytes remaining register
+    if (!m_i2c_dev->write_then_read(&reg, 1, (uint8_t *)&bytesAvailable, 2)) {
+        return 0; // Communication error
+    }
+
+    // Ensure bytesAvailable is within a reasonable range
+    if (bytesAvailable == 0 || bytesAvailable > sizeof(fifoBuffer)) {
+        return 0; // No data or invalid size
+    }
+
+    // Now read the FIFO data from the appropriate register
+    uint8_t fifoDataReg = NAVIGUIDER_REG_EVENT_STATUS; // Replace with the actual FIFO data register
+    if (!m_i2c_dev->write_then_read(&fifoDataReg, 1, fifoBuffer, bytesAvailable)) {
+        return 0; // Read error
+    }
+
+    return bytesAvailable; // Return the total bytes read
+}
+
+SensorEventsStruct NaviguiderCompass::parseFifo(uint32_t bytesRead) {
+    SensorEventsStruct events = {false, false, false, false, false, false}; // Default all events to false
+
+    // Ensure there's data to parse
+    if (bytesRead == 0 || fifoBuffer == nullptr) {
+		#ifdef DEBUG
+        SerialUSB.println("No data to parse in FIFO.");
+		#endif
+        return events;
+    }
+
+    // Process the EventStatus register (first byte of the FIFO buffer)
+    uint8_t eventStatus = fifoBuffer[0]; // Assuming the first byte represents the EventStatus register
+
+    // Parse each bit in the EventStatus register
+    events.CPUReset = eventStatus & 0b00000001;          // Bit [0]
+    events.Error = eventStatus & 0b00000010;             // Bit [1]
+    events.QuaternionResult = eventStatus & 0b00000100; // Bit [2]
+    events.MagResult = eventStatus & 0b00001000;         // Bit [3]
+    events.AccelResult = eventStatus & 0b00010000;       // Bit [4]
+    events.GyroResult = eventStatus & 0b00100000;        // Bit [5]
+
+    // Debug output for parsed events
+    #ifdef DEBUG
+    SerialUSB.println("Parsed FIFO EventStatus:");
+    SerialUSB.print("CPUReset: "); SerialUSB.println(events.CPUReset);
+    SerialUSB.print("Error: "); SerialUSB.println(events.Error);
+    SerialUSB.print("QuaternionResult: "); SerialUSB.println(events.QuaternionResult);
+    SerialUSB.print("MagResult: "); SerialUSB.println(events.MagResult);
+    SerialUSB.print("AccelResult: "); SerialUSB.println(events.AccelResult);
+    SerialUSB.print("GyroResult: "); SerialUSB.println(events.GyroResult);
+    #endif
+
+    return events; // Return the parsed events
+}
+
+
 // Called to handle interrupt on the interrupt pin.
 void NaviguiderCompass::interruptHandler(){
 	
@@ -87,6 +227,34 @@ void NaviguiderCompass::interruptHandler(){
 	SerialUSB.println("Interrupt Occurred");
 	#endif
 }
+
+
+bool NaviguiderCompass::configureEnabledEventsRegister() {
+    uint8_t registerAddress = NAVIGUIDER_REG_ENABLE_EVENTS; // EnableEvents register address
+    uint8_t buffer[1] = { NAVIGUIDER_VALUE_ENABLE_EVENTS }; // Event configuration to write
+
+    // Write the event configuration to the EnableEvents register
+    if (!m_i2c_dev->write(buffer, 1, true, &registerAddress, 1)) {
+        #ifdef DEBUG
+        SerialUSB.println("Failed to write to EnableEvents register!");
+        #endif
+        return false; // Communication error
+    }
+
+    #ifdef DEBUG
+    SerialUSB.print("EnableEvents register configured: 0x");
+    SerialUSB.println(buffer[0], HEX); // Print the value written to the register
+    #endif
+
+    return true; // Successfully configured
+}
+
+
+
+
+
+
+
 
 
 
@@ -113,6 +281,33 @@ bool NaviguiderCompass::readAccelerometer(int16_t &x, int16_t &y, int16_t &z, ui
     y = (buffer[2] << 8) | buffer[3];
     z = (buffer[4] << 8) | buffer[5];
     accuracy = buffer[6];
+	
+	x *= 0.0005;
+	y *= 0.0005;
+	z *= 0.0005;
+
+    return true; // Success
+}
+
+// Read raw accelerometer data
+bool NaviguiderCompass::readMagnometer(int16_t &x, int16_t &y, int16_t &z, uint8_t &accuracy) {
+    uint8_t buffer[7]; // Buffer to hold accelerometer data
+
+    // Write the accelerometer register and then read 7 bytes of data
+    uint8_t registerAddress = NAVIGUIDER_REG_MAGNETOMETER; // Register to read from
+    if (!m_i2c_dev->write_then_read(&registerAddress, 1, buffer, 7)) {
+        return false; // Communication error
+    }
+
+    // Parse the data from the buffer
+    x = (buffer[0] << 8) | buffer[1];
+    y = (buffer[2] << 8) | buffer[3];
+    z = (buffer[4] << 8) | buffer[5];
+    accuracy = buffer[6];
+	
+	x *= 0.01962;
+	y *= 0.01962;
+	z *= 0.01962;
 
     return true; // Success
 }
@@ -401,3 +596,84 @@ void NaviguiderCompass::printAlgorithmControlValues() {
 }
 
 
+EnableEventsStruct NaviguiderCompass::readEnabledEventsRegister() {
+    EnableEventsStruct events = {false, false, false, false, false, false, false, false}; // Default all bits to false
+    uint8_t registerAddress = 0x33; // Address of the EnableEvents register
+    uint8_t buffer[1]; // Buffer to store the read data
+
+    // Read the EnableEvents register
+    if (!m_i2c_dev->write_then_read(&registerAddress, 1, buffer, 1)) {
+        SerialUSB.println("Failed to read EnableEvents register!");
+        return events; // Return the default struct with all values set to false
+    }
+
+    // Parse the bits in the buffer
+    events.CPUReset = buffer[0] & 0b00000001;          // Bit [0]
+    events.Error = buffer[0] & 0b00000010;             // Bit [1]
+    events.QuaternionResult = buffer[0] & 0b00000100; // Bit [2]
+    events.MagResult = buffer[0] & 0b00001000;         // Bit [3]
+    events.AccelResult = buffer[0] & 0b00010000;       // Bit [4]
+    events.GyroResult = buffer[0] & 0b00100000;        // Bit [5]
+    events.ReservedA = buffer[0] & 0b01000000;         // Bit [6]
+    events.ReservedB = buffer[0] & 0b10000000;         // Bit [7]
+
+    return events; // Return the populated struct
+}
+
+void NaviguiderCompass::printEnabledEventsValues() {
+
+    SerialUSB.println("Enabled Events:");
+    SerialUSB.print("    CPU Reset: "); SerialUSB.println(enabledEventsValues.CPUReset);
+    SerialUSB.print("    Error: "); SerialUSB.println(enabledEventsValues.Error);
+    SerialUSB.print("    Quaternion Result: "); SerialUSB.println(enabledEventsValues.QuaternionResult);
+    SerialUSB.print("    Mag Result: "); SerialUSB.println(enabledEventsValues.MagResult);
+    SerialUSB.print("    Accel Result: "); SerialUSB.println(enabledEventsValues.AccelResult);
+    SerialUSB.print("    Gyro Result: "); SerialUSB.println(enabledEventsValues.GyroResult);
+    SerialUSB.print("    ReservedA: "); SerialUSB.println(enabledEventsValues.ReservedA);
+    SerialUSB.print("    ReservedB: "); SerialUSB.println(enabledEventsValues.ReservedB);
+}
+
+
+// NOT WORKING????????
+bool NaviguiderCompass::enableRawSensors(bool enableMag, bool enableAccel, bool enableGyro) {
+    uint8_t value = 0x00;
+
+    // Set bits for enabling raw sensors
+    if (enableMag) value |= 0x04;    // Enable Magnetometer
+    if (enableAccel) value |= 0x01; // Enable Accelerometer
+    if (enableGyro) value |= 0x02;  // Enable Gyroscope
+
+    uint8_t paramPage = PARAM_PAGE_WARM_START; // Replace with your defined warm start page register
+    uint8_t registerAddress = PARAM_LOAD_REG; // Replace with your parameter load register address
+
+    // Select the parameter page
+    if (!m_i2c_dev->write(&paramPage, 1)) {
+#ifdef DEBUG
+        SerialUSB.println("Failed to set parameter page!");
+#endif
+        return false;
+    }
+
+    // Write the parameter value (value) to the parameter load register
+    if (!m_i2c_dev->write_then_read(&registerAddress, 1, &value, 1)) {
+#ifdef DEBUG
+        SerialUSB.println("Failed to write raw sensor enable values!");
+#endif
+        return false;
+    }
+
+    // Commit the change
+    uint8_t paramCommit = 0x80 | 127; // 0x80 sets the commit bit, 127 is the parameter ID
+    if (!m_i2c_dev->write(&paramCommit, 1)) {
+#ifdef DEBUG
+        SerialUSB.println("Failed to commit parameter changes!");
+#endif
+        return false;
+    }
+
+#ifdef DEBUG
+    SerialUSB.println("Raw sensors enabled successfully!");
+#endif
+
+    return true;
+}

@@ -206,6 +206,8 @@
 #define NAVIGUIDER_REG_PRODUCT_ID (0x90)							// Stores the product ID of the Naviguider Sentral Fusion Co-Processor
 #define NAVIGUIDER_REG_ALGORITHM_CONTROL (0x54)						// Register that sets our algorithmic control, see table for NAVIGUIDER_VALUE_ALGORITHM_CONTROL
 #define NAVIGUIDER_REG_ENABLE_EVENTS (0x33)                         // Register that stores our Enable Events value.
+#define NAVIGUIDER_REG_FIFO_BYTES_REMAINING_LSB (0x38)				// LSB of remaing bytes in FIFO
+#define NAVIGUIDER_REG_EVENT_STATUS (0x34)
 
 /* Register Values */
 
@@ -264,6 +266,10 @@
 
 
 
+#define PARAM_LOAD_REG                                  0x5C
+#define PARAM_PAGE_WARM_START                           2 
+
+
 /* STRUCT Definitions */
 
 /* AlgorithmControlStruct Struct */
@@ -291,6 +297,16 @@ struct EnableEventsStruct {
     bool ReservedB;
 };
 
+// Struct to represent parsed sensor events
+struct SensorEventsStruct {
+    bool CPUReset;        // Bit [0]
+    bool Error;           // Bit [1]
+    bool QuaternionResult; // Bit [2]
+    bool MagResult;       // Bit [3]
+    bool AccelResult;     // Bit [4]
+    bool GyroResult;      // Bit [5]
+};
+
 /* Class Declaration */
 class NaviguiderCompass {
 	
@@ -304,9 +320,14 @@ class NaviguiderCompass {
 
 		// Initialize the sensor
 		bool begin(TwoWire *wire = &Wire, uint8_t address = NAVIGUIDER_ADDRESS);
+		
+		// To Be Called Every Loop. Reads the sensor event's, and processes the incoming sensor data.
+		void readSensors();
 
 		// Read accelerometer data
 		bool readAccelerometer(int16_t &x, int16_t &y, int16_t &z, uint8_t &accuracy);
+		
+		bool readMagnometer(int16_t &x, int16_t &y, int16_t &z, uint8_t &accuracy);
 		
 		bool enableSensor(uint8_t sensorId, uint16_t sampleRate);
 		
@@ -320,6 +341,8 @@ class NaviguiderCompass {
 		static volatile bool interruptFlag; 			// Has interrupt happened since we serviced the previous interrupt?, static so we can reference it regardless of class, volatile, because we use an ISR
 		String fusionCoprocessor;						// String tells us the name of the Fusion Co-Processor Used.
 		AlgorithmControlStruct algorithmControlValues;	// Saved values read from the Algorithm Control Register	
+		EnableEventsStruct enabledEventsValues;			// Saved values read from the Enabled Events Register
+		uint8_t fifoBuffer[24*1024]; 						// Adjust size as needed (depends on your device's FIFO size)
 		
 		// Return the fusion coprocessor string, from the registers, parsed into a string.
 		String getFusionCoprocessor();
@@ -346,16 +369,24 @@ class NaviguiderCompass {
 		void printAlgorithmControlValues();
 		
 		// Configure the Enable Events Register
-		bool configEnableEventsRegister();
+		bool configureEnabledEventsRegister();
 		
 		// Read the enable Events register
-		EnableEventsStruct readEnableEventsRegister();
+		EnableEventsStruct readEnabledEventsRegister();
 		
 		// Print Enable Events Register
-		void printEnableEventsValues();
+		void printEnabledEventsValues();
 		
 		// The Interrupt handler, for when the interrupt pin get's called
 		static void interruptHandler();
+		
+		// Read the fifo event register
+		uint32_t readFifo();
+		
+		// Parse the Fifo, to see what event it is
+		SensorEventsStruct parseFifo(uint32_t bytesRead);
+		
+		bool enableRawSensors(bool enableMag, bool enableAccel, bool enableGyro);
 };
 
 
