@@ -19,6 +19,8 @@
  
  // Define static member variable
 volatile bool NaviguiderCompass::interruptFlag = false;
+PhysicalSensorStatusStruct NaviguiderCompass::PhysicalSensorStatus;
+
 
 // Constructor with host interrupt pin
 NaviguiderCompass::NaviguiderCompass(int hostInterruptPin)
@@ -54,6 +56,7 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 	#ifdef DEBUG
 	printNaviguiderStatusRegister();
 	printNaviguiderSensorStatus();
+	printPhysicalSensorStatus();
 	#endif
 	
 	
@@ -240,6 +243,82 @@ void NaviguiderCompass::printNaviguiderSensorStatus()
     }
 
     SerialUSB.println("+-----+-----------+------+--------+-----------+------+-------+");
+}
+
+
+/**
+ * @brief Displays the physical sensor status, including sample rate, dynamic range, and status flags.
+ *
+ * This function retrieves and prints the status of the physical sensors (Accelerometer, Gyroscope, Magnetometer).
+ * The output is formatted in a structured table for readability.
+ */
+void NaviguiderCompass::printPhysicalSensorStatus()
+{
+    // Retrieve physical sensor status
+    readPhysicalSensorStatus();
+
+    // Print table header
+    SerialUSB.println("+----------------------------------------------------------------------------------------+");
+    SerialUSB.println("|                       NAVIGUIDER PHYSICAL SENSOR STATUS                                |");
+    SerialUSB.println("+--------+--------+---------+-----+-----------+------+--------+-----------+------+-------+");
+    SerialUSB.println("| Sensor | Sample | Dynamic | ID  | Data      | I2C  | DEVICE | Transient | Data | Power |");
+    SerialUSB.println("|        | Rate   | Range   |     | Available | NACK | ID ERR | Error     | Lost | Mode  |");
+    SerialUSB.println("+--------+--------+---------+-----+-----------+------+--------+-----------+------+-------+");
+
+    // Print sensor details using formatted output
+    char buffer[128];
+
+    // Accelerometer
+    sprintf(buffer, "| Accel  | %6u | %7u |", 
+            PhysicalSensorStatus.Accelerometer.SampleRate, 
+            PhysicalSensorStatus.Accelerometer.DynamicRange);
+    SerialUSB.print(buffer);
+    printSensorStatusRow(1, &PhysicalSensorStatus.Accelerometer.Status);
+
+    // Gyroscope
+    sprintf(buffer, "| Gyro   | %6u | %7u |", 
+            PhysicalSensorStatus.Gyroscope.SampleRate, 
+            PhysicalSensorStatus.Gyroscope.DynamicRange);
+    SerialUSB.print(buffer);
+    printSensorStatusRow(2, &PhysicalSensorStatus.Gyroscope.Status);
+
+    // Magnetometer
+    sprintf(buffer, "| Mag    | %6u | %7u |", 
+            PhysicalSensorStatus.Magnetometer.SampleRate, 
+            PhysicalSensorStatus.Magnetometer.DynamicRange);
+    SerialUSB.print(buffer);
+    printSensorStatusRow(3, &PhysicalSensorStatus.Magnetometer.Status);
+
+    // Print table footer
+    SerialUSB.println("+--------+--------+---------+-----+-----------+------+--------+-----------+------+-------+");
+}
+
+
+/**
+ * @brief Reads the physical sensor status from the Naviguider.
+ *
+ * This function queries the Naviguider to retrieve the current status, 
+ * sample rate, and dynamic range of all physical sensors (accelerometer, 
+ * gyroscope, and magnetometer) and stores the results in the 
+ * `PhysicalSensorStatusStruct` global structure.
+ */
+void NaviguiderCompass::readPhysicalSensorStatus()
+{
+    uint8_t buffer[15]; // Buffer to store the retrieved parameter data
+
+    // Attempt to read the physical sensor status parameter
+    if (!readParameter(
+            NAVIGUIDER_PARAMETER_PAGE_SYSTEM, 
+            NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSOR_STATUS, 
+            buffer, 
+            sizeof(buffer)))
+    {
+        SerialUSB.println("Failed to read physical sensor status.");
+        return;
+    }
+
+    // Copy the buffer data into the PhysicalSensorStatusStruct
+    memcpy(&PhysicalSensorStatus, buffer, sizeof(buffer));
 }
 
 

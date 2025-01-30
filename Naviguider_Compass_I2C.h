@@ -651,6 +651,34 @@ struct ParameterInformation
 };
 
 
+/**
+ * @brief Struct representing the configuration and status of an individual physical sensor.
+ *
+ * This struct stores the sample rate, dynamic range, and status flags of a single
+ * physical sensor (e.g., accelerometer, gyroscope, or magnetometer).
+ */
+struct PhysicalSensorConfigStruct
+{
+    uint16_t SampleRate;       ///< The sample rate of the sensor in Hz.
+    uint16_t DynamicRange;     ///< The dynamic range of the sensor.
+    SensorStatusStruct Status; ///< The status flags of the sensor.
+};
+
+
+/**
+ * @brief Struct representing the collection of all physical sensors in the system.
+ *
+ * This struct holds the configuration and status of each physical sensor,
+ * including the accelerometer, gyroscope, and magnetometer.
+ */
+struct PhysicalSensorStatusStruct
+{
+    PhysicalSensorConfigStruct Magnetometer;  ///< Magnetometer sensor configuration and status.
+    PhysicalSensorConfigStruct Accelerometer; ///< Accelerometer sensor configuration and status.
+    PhysicalSensorConfigStruct Gyroscope;     ///< Gyroscope sensor configuration and status.
+};
+
+
 
 /**
  * @brief Struct representing the physical sensors present in the system.
@@ -707,6 +735,7 @@ class NaviguiderCompass {
 		uint8_t _i2cAddress; 							// I2C address of the device
 		static volatile bool interruptFlag; 			// Has interrupt happened since we serviced the previous interrupt?, static so we can reference it regardless of class, volatile, because we use an ISR
 		String fusionCoprocessor;						// String tells us the name of the Fusion Co-Processor Used.
+		static PhysicalSensorStatusStruct PhysicalSensorStatus; // Global instance holding the status of all physical sensors.
 		AlgorithmControlStruct algorithmControlValues;	// Saved values read from the Algorithm Control Register	
 		EnableEventsStruct enabledEventsValues;			// Saved values read from the Enabled Events Register
 		uint8_t fifoBuffer[24*1024]; 						// Adjust size as needed (depends on your device's FIFO size)
@@ -737,6 +766,27 @@ class NaviguiderCompass {
 		 * prints the information in a tabular format.
 		 */
 		void printNaviguiderSensorStatus();
+		
+		
+		/**
+		 * @brief Displays the physical sensor status, including sample rate, dynamic range, and status flags.
+		 *
+		 * This function retrieves and prints the status of the physical sensors (Accelerometer, Gyroscope, Magnetometer).
+		 * The output is formatted in a structured table for readability.
+		 */
+		void printPhysicalSensorStatus();
+		
+		
+		/**
+		 * @brief Reads the physical sensor status from the Naviguider.
+		 *
+		 * This function queries the Naviguider to retrieve the current status, 
+		 * sample rate, and dynamic range of all physical sensors (accelerometer, 
+		 * gyroscope, and magnetometer) and stores the results in the 
+		 * `PhysicalSensorStatusStruct` global structure.
+		 */
+		void readPhysicalSensorStatus();
+		
 		
 		/**
 		 * @brief Displays the status information for a given sensor.
