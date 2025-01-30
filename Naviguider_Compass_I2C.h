@@ -160,6 +160,7 @@
  * -----------------------------------------------------------------------------
  * | Value 1 – Meta Event Type ID  | Value 2                 | Value 3          |
  * -----------------------------------------------------------------------------
+ * | 0x01 Flush Complete           | Sensor TYpe from Fifo_Flush register | NOT USED
  * | 0x02 Sample Rate Changed      | Sensor ID               | 0                |
  * | 0x03 Power Mode Changed       | Sensor ID               | 0                |
  * | 0x04 Error                    | Error Register          | Debug State      |
@@ -180,7 +181,7 @@
  * | 0x11 Transfer Cause           | 0                       | 0                |
  * -----------------------------------------------------------------------------
  */
- 
+#define NAVIGUIDER_META_EVENT_TYPE_FLUSH_COMPLETE (0x01)
 #define NAVIGUIDER_META_EVENT_TYPE_SAMPLE_RATE_CHANGED (0x02)
 #define NAVIGUIDER_META_EVENT_TYPE_POWER_MODE_CHANGED (0x03)
 #define NAVIGUIDER_META_EVENT_TYPE_ERROR (0x04)
@@ -197,17 +198,211 @@
 #define NAVIGUIDER_META_EVENT_TYPE_TRANSFER_CAUSE (0x11)
 
 
-/* Naviguider Registers */
-#define NAVIGUIDER_REG_CHIP_CONTROL (0x34)							// Send 0x01 to this to start the CPU
+/**
+ * SENtral-A2 Register Map 
+ * ----------------------------------------------------
+ * | Register Name          	| Address   |I2C Access|
+ * |----------------------------|-----------|----------|
+ * | Data Transfer Area [00:03] | 0x00-0x03 | RO 	   |
+ * | Data Transfer Area [04:07] | 0x04-0x07 | RO       |
+ * | Data Transfer Area [08:11] | 0x08-0x0B | RO       |
+ * | Data Transfer Area [12:15] | 0x0C-0x0F | RO       |
+ * | Data Transfer Area [16:17] | 0x10-0x11 | RO       |
+ * | Data Transfer Area [18:19] | 0x12-0x13 | RO       |
+ * | Data Transfer Area [20:21] | 0x14-0x15 | RO       |
+ * | Data Transfer Area [22:23] | 0x16-0x17 | RO       |
+ * | Data Transfer Area [24:25] | 0x18-0x19 | RO       |
+ * | Data Transfer Area [26:27] | 0x1A-0x1B | RO       |
+ * | Data Transfer Area [28:29] | 0x1C-0x1D | RO       |
+ * | Data Transfer Area [30:31] | 0x1E-0x1F | RO       |
+ * | Data Transfer Area [32:33] | 0x20-0x21 | RO       |
+ * | Data Transfer Area [34:35] | 0x22-0x23 | RO       |
+ * | Data Transfer Area [36:37] | 0x24-0x25 | RO       |
+ * | Data Transfer Area [38:39] | 0x26-0x27 | RO       |
+ * | Data Transfer Area [40:41] | 0x28-0x29 | RO       |
+ * | Data Transfer Area [42:43] | 0x2A-0x2B | RO       |
+ * | Data Transfer Area [44:45] | 0x2C-0x2D | RO       |
+ * | Data Transfer Area [46:47] | 0x2E-0x2F | RO       |
+ * | Data Transfer Area [48:49] | 0x30-0x31 | RO       |
+ * | FIFO Flush                 | 0x32      | RW       |
+ * | Reserved                   | 0x33      | RW       |
+ * | Chip Control               | 0x34      | RW       |
+ * | Host Status                | 0x35      | RO       |
+ * | Int Status                 | 0x36      | RO       |
+ * | Chip Status                | 0x37      | RO       |
+ * | Bytes Remaining LSB        | 0x38      | RO       |
+ * | Bytes Remaining MSB        | 0x39      | RO       |
+ * | Parameter Acknowledge      | 0x3A      | RO       |
+ * | Saved Parameter Byte 0     | 0x3B      | RO       |
+ * | Saved Parameter Byte 1     | 0x3C      | RO       |
+ * | Saved Parameter Byte 2     | 0x3D      | RO       |
+ * | Saved Parameter Byte 3     | 0x3E      | RO       |
+ * | Saved Parameter Byte 4     | 0x3F      | RO       |
+ * | Saved Parameter Byte 5     | 0x40      | RO       |
+ * | Saved Parameter Byte 6     | 0x41      | RO       |
+ * | Saved Parameter Byte 7     | 0x42      | RO       |
+ * | Saved Parameter Byte 8     | 0x43      | RO       |
+ * | Saved Parameter Byte 9     | 0x44      | RO       |
+ * | Saved Parameter Byte 10    | 0x45      | RO       |
+ * | Saved Parameter Byte 11    | 0x46      | RO       |
+ * | Saved Parameter Byte 12    | 0x47      | RO       |
+ * | Saved Parameter Byte 13    | 0x48      | RO       |
+ * | Saved Parameter Byte 14    | 0x49      | RO       |
+ * | Saved Parameter Byte 15    | 0x4A      | RO       |
+ * | GP20                       | 0x4B      | RO       |
+ * | GP21                       | 0x4C      | RO       |
+ * | GP22                       | 0x4D      | RO       |
+ * | GP23                       | 0x4E      | RO       |
+ * | GP24                       | 0x4F      | RO       |
+ * | Error Register             | 0x50      | RO       |
+ * | Interrupt State            | 0x51      | RO       |
+ * | Debug Value                | 0x52      | RO       |
+ * | Debug State                | 0x53      | RO       |
+ * | Parameter Page Select      | 0x54      | RW       |
+ * | Host Interface Control     | 0x55      | RW       |
+ * | GP31                       | 0x56      | RW       |
+ * | GP32                       | 0x57      | RW       |
+ * | GP33                       | 0x58      | RW       |
+ * | GP34                       | 0x59      | RW       |
+ * | GP35                       | 0x5A      | RW       |
+ * | GP36                       | 0x5B      | RW       |
+ * | Load Parameter Byte 0      | 0x5C      | RW       |
+ * | Load Parameter Byte 1      | 0x5D      | RW       |
+ * | Load Parameter Byte 2      | 0x5E      | RW       |
+ * | Load Parameter Byte 3      | 0x5F      | RW       |
+ * | Load Parameter Byte 4      | 0x60      | RW       |
+ * | Load Parameter Byte 5      | 0x61      | RW       |
+ * | Load Parameter Byte 6      | 0x62      | RW       |
+ * | Load Parameter Byte 7      | 0x63      | RW       |
+ * | Parameter Request          | 0x64      | RW       |
+ * | GP46                       | 0x65      | RW       |
+ * | GP47                       | 0x66      | RW       |
+ * | GP48                       | 0x67      | RW       |
+ * | GP49                       | 0x68      | RW       |
+ * | GP50                       | 0x69      | RW       |
+ * | GP51                       | 0x6A      | RW       |
+ * | GP52                       | 0x6B      | RW       |
+ * | Host IRQ Timestamp         | 0x6C-0x6F | RO       |
+ * | ROM Version                | 0x70-0x73 | RO       |
+ * | No Access                  | 0x74-0x8F | --       |
+ * | Product ID                 | 0x90      | RO       |
+ * | Revision ID                | 0x91      | RO       |
+ * |         		            | 0x92      | RO       |
+ * |                            | 0x94-0x95 | RW       |
+ * | Upload Data                | 0x96      | RW       |
+ * | CRC Host                   | 0x97-0x9A | RO       |
+ * | Reset Request              | 0x9B      | RW       |
+ * | No Access                  | 0x9C-0x9D | --       |
+ * | Pass-Through Ready         | 0x9E      | RO       |
+ * | SCL Low Cycles             | 0x9F      | RW       |
+ * | Pass-Through Config        | 0xA0      | RW       |
+ * ----------------------------------------------------
+ */
+#define NAVIGUIDER_REG_DATA_TRANSFER_00_03     (0x00)
+#define NAVIGUIDER_REG_DATA_TRANSFER_04_07     (0x04)
+#define NAVIGUIDER_REG_DATA_TRANSFER_08_11     (0x08)
+#define NAVIGUIDER_REG_DATA_TRANSFER_12_15     (0x0C)
+#define NAVIGUIDER_REG_DATA_TRANSFER_16_17     (0x10)
+#define NAVIGUIDER_REG_DATA_TRANSFER_18_19     (0x12)
+#define NAVIGUIDER_REG_DATA_TRANSFER_20_21     (0x14)
+#define NAVIGUIDER_REG_DATA_TRANSFER_22_23     (0x16)
+#define NAVIGUIDER_REG_DATA_TRANSFER_24_25     (0x18)
+#define NAVIGUIDER_REG_DATA_TRANSFER_26_27     (0x1A)
+#define NAVIGUIDER_REG_DATA_TRANSFER_28_29     (0x1C)
+#define NAVIGUIDER_REG_DATA_TRANSFER_30_31     (0x1E)
+#define NAVIGUIDER_REG_DATA_TRANSFER_32_33     (0x20)
+#define NAVIGUIDER_REG_DATA_TRANSFER_34_35     (0x22)
+#define NAVIGUIDER_REG_DATA_TRANSFER_36_37     (0x24)
+#define NAVIGUIDER_REG_DATA_TRANSFER_38_39     (0x26)
+#define NAVIGUIDER_REG_DATA_TRANSFER_40_41     (0x28)
+#define NAVIGUIDER_REG_DATA_TRANSFER_42_43     (0x2A)
+#define NAVIGUIDER_REG_DATA_TRANSFER_44_45     (0x2C)
+#define NAVIGUIDER_REG_DATA_TRANSFER_46_47     (0x2E)
+#define NAVIGUIDER_REG_DATA_TRANSFER_48_49     (0x30)
+#define NAVIGUIDER_REG_FIFO_FLUSH              (0x32)
+#define NAVIGUIDER_REG_RESERVED                (0x33)
+#define NAVIGUIDER_REG_CHIP_CONTROL            (0x34)			// Send 0x01 to this to start the CPU
+#define NAVIGUIDER_REG_HOST_STATUS             (0x35)
+#define NAVIGUIDER_REG_INT_STATUS              (0x36)
+#define NAVIGUIDER_REG_CHIP_STATUS             (0x37)
+#define NAVIGUIDER_REG_BYTES_REMAINING_LSB     (0x38)			// LSB of remaining bytes in FIFO
+#define NAVIGUIDER_REG_BYTES_REMAINING_MSB     (0x39)			// MSB of remaining bytes in FIFO
+#define NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE   (0x3A)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_0      (0x3B)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_1      (0x3C)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_2      (0x3D)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_3      (0x3E)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_4      (0x3F)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_5      (0x40)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_6      (0x41)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_7      (0x42)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_8      (0x43)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_9      (0x44)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_10     (0x45)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_11     (0x46)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_12     (0x47)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_13     (0x48)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_14     (0x49)
+#define NAVIGUIDER_REG_SAVED_PARAM_BYTE_15     (0x4A)
+#define NAVIGUIDER_REG_GP20                    (0x4B)
+#define NAVIGUIDER_REG_GP21                    (0x4C)
+#define NAVIGUIDER_REG_GP22                    (0x4D)
+#define NAVIGUIDER_REG_GP23                    (0x4E)
+#define NAVIGUIDER_REG_GP24                    (0x4F)
+#define NAVIGUIDER_REG_ERROR                   (0x50)
+#define NAVIGUIDER_REG_INTERRUPT_STATE         (0x51)
+#define NAVIGUIDER_REG_DEBUG_VALUE             (0x52)
+#define NAVIGUIDER_REG_DEBUG_STATE             (0x53)
+#define NAVIGUIDER_REG_PARAMETER_PAGE_SELECT   (0x54)
+#define NAVIGUIDER_REG_HOST_INTERFACE_CONTROL  (0x55)
+#define NAVIGUIDER_REG_GP31                    (0x56)
+#define NAVIGUIDER_REG_GP32                    (0x57)
+#define NAVIGUIDER_REG_GP33                    (0x58)
+#define NAVIGUIDER_REG_GP34                    (0x59)
+#define NAVIGUIDER_REG_GP35                    (0x5A)
+#define NAVIGUIDER_REG_GP36                    (0x5B)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_0       (0x5C)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_1       (0x5D)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_2       (0x5E)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_3       (0x5F)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_4       (0x60)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_5       (0x61)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_6       (0x62)
+#define NAVIGUIDER_REG_LOAD_PARAM_BYTE_7       (0x63)
+#define NAVIGUIDER_REG_PARAMETER_REQUEST       (0x64)
+#define NAVIGUIDER_REG_GP46                    (0x65)
+#define NAVIGUIDER_REG_GP47                    (0x66)
+#define NAVIGUIDER_REG_GP48                    (0x67)
+#define NAVIGUIDER_REG_GP49                    (0x68)
+#define NAVIGUIDER_REG_GP50                    (0x69)
+#define NAVIGUIDER_REG_GP51                    (0x6A)
+#define NAVIGUIDER_REG_GP52                    (0x6B)
+#define NAVIGUIDER_REG_HOST_IRQ_TIMESTAMP      (0x6C)
+#define NAVIGUIDER_REG_ROM_VERSION             (0x70)
+#define NAVIGUIDER_REG_NO_ACCESS_74_8F         (0x74)
+#define NAVIGUIDER_REG_PRODUCT_ID              (0x90)			// Stores the product ID of the Naviguider Sentral Fusion Co-Processor
+#define NAVIGUIDER_REG_REVISION_ID             (0x91)
+#define NAVIGUIDER_REG_UNKNOWN_92              (0x92)
+#define NAVIGUIDER_REG_UNKNOWN_94_95           (0x94)
+#define NAVIGUIDER_REG_UPLOAD_DATA             (0x96)
+#define NAVIGUIDER_REG_CRC_HOST                (0x97)
+#define NAVIGUIDER_REG_RESET_REQUEST           (0x9B)
+#define NAVIGUIDER_REG_NO_ACCESS_9C_9D         (0x9C)
+#define NAVIGUIDER_REG_PASS_THROUGH_READY      (0x9E)
+#define NAVIGUIDER_REG_SCL_LOW_CYCLES          (0x9F)
+#define NAVIGUIDER_REG_PASS_THROUGH_CONFIG     (0xA0)
+
+
+/** NOW UNSURE ABOUT THESE VALUES						
 #define NAVIGUIDER_REG_MAG_RATE (0x55)								// Register that stores the Magnometer Output Rate
 #define NAVIGUIDER_REG_ACCEL_RATE (0x56)							// Register that stores the Accelormeter's Output Rate
 #define NAVIGUIDER_REG_GYRO_RATE (0x57)								// Register that stores the Gyro's Output Rate
 #define NAVIGUIDER_REG_QRATE_DIVISOR (0x32)							// Register that stores the QRATE Divisor
-#define NAVIGUIDER_REG_PRODUCT_ID (0x90)							// Stores the product ID of the Naviguider Sentral Fusion Co-Processor
 #define NAVIGUIDER_REG_ALGORITHM_CONTROL (0x54)						// Register that sets our algorithmic control, see table for NAVIGUIDER_VALUE_ALGORITHM_CONTROL
 #define NAVIGUIDER_REG_ENABLE_EVENTS (0x33)                         // Register that stores our Enable Events value.
-#define NAVIGUIDER_REG_FIFO_BYTES_REMAINING_LSB (0x38)				// LSB of remaing bytes in FIFO
-#define NAVIGUIDER_REG_EVENT_STATUS (0x34)
+*/
+
+
 
 /* Register Values */
 
@@ -265,10 +460,113 @@
 #define NAVIGUIDER_VALUE_ENABLE_EVENTS (0x3F)			// 0x3F is ALL on but the reserved values
 
 
+/**
+ * SENtral-A2 Parameter Page Select (Register 0x54)
+ * --------------------------------------------------------------
+ * | Bits 7-4 | Parameter Size (Transfer Size in Bytes)         |
+ * | Bits 3-0 | Parameter Page (Selects Parameter Page Number)  |
+ * --------------------------------------------------------------
+ * 
+ * Parameter Page Table:
+ * --------------------------------------------------------------
+ * | Page | Name              | Description                     |
+ * |------|------------------|----------------------------------|
+ * | 0x0  | None             | Must write this after accessing  |
+ * |      |                  | Algorithm Page to signal safety. |
+ * | 0x1  | System           | Controls system-wide settings,   |
+ * |      |                  | meta events, FIFO watermark, etc.|
+ * | 0x2  | Algorithm        | Contains sensor fusion warm      |
+ * |      |                  | start parameters for saving and  |
+ * |      |                  | restoring calibration data.      |
+ * | 0x3  | Sensor Info      | Contains parameters for real &   |
+ * |      |                  | virtual sensors, including their |
+ * |      |                  | status & configuration.          |
+ * | 0x4  | Reserved         | Reserved for future use.         |
+ * | 0x5  | Sensor Config    | Allows writing & reading sensor  |
+ * |      |                  | configurations (both wakeup &    |
+ * |      |                  | non-wakeup sensors).             |
+ * | 0x6  | Reserved         | Reserved for future use.         |
+ * | 0x7  | Reserved         | Reserved for future use.         |
+ * | 0x8  | Reserved         | Reserved for future use.         |
+ * | 0x9  | Customer Page 1  | Reserved for customer use.       |
+ * | 0xA  | Customer Page 2  | Reserved for customer use.       |
+ * | 0xB  | Customer Page 3  | Reserved for customer use.       |
+ * | 0xC  | Customer Page 4  | Reserved for customer use.       |
+ * | 0xD  | Algorithm Knobs  | Allows configuration of advanced |
+ * |      |                  | features of the sensor fusion.   |
+ * | 0xE  | Reserved         | Reserved for future use.         |
+ * | 0xF  | Reserved         | Reserved for future use.         |
+ * --------------------------------------------------------------
+ * 
+ * Notes:
+ * - The **most significant nibble (Bits 7-4)** sets the transfer size.
+ *   - If set to 0, the **default** transfer size is selected:
+ *     - 16 bytes for saving/reading.
+ *     - 8 bytes for loading/writing.
+ *   - If a size larger than the default is selected, it will be limited to 
+ *     16 bytes (saving/reading) or 8 bytes (loading/writing).
+ * 
+ * - The **least significant nibble (Bits 3-0)** selects the parameter page.
+ */
+#define NAVIGUIDER_PARAMETER_PAGE_NONE            (0x00)  // Must write this after accessing Algorithm Page
+#define NAVIGUIDER_PARAMETER_PAGE_SYSTEM          (0x01)  // System-wide settings, meta events, FIFO watermark, etc.
+#define NAVIGUIDER_PARAMETER_PAGE_ALGORITHM       (0x02)  // Sensor fusion algorithm warm start parameters
+#define NAVIGUIDER_PARAMETER_PAGE_SENSOR_INFO     (0x03)  // Sensor parameters (real or virtual) for reading status/configuration
+#define NAVIGUIDER_PARAMETER_PAGE_RESERVED_4      (0x04)  // Reserved for future use
+#define NAVIGUIDER_PARAMETER_PAGE_SENSOR_CONFIG   (0x05)  // Sensor configuration for writing Sensor Configuration structures
+#define NAVIGUIDER_PARAMETER_PAGE_RESERVED_6      (0x06)  // Reserved for future use
+#define NAVIGUIDER_PARAMETER_PAGE_RESERVED_7      (0x07)  // Reserved for future use
+#define NAVIGUIDER_PARAMETER_PAGE_RESERVED_8      (0x08)  // Reserved for future use
+#define NAVIGUIDER_PARAMETER_PAGE_CUSTOM_9        (0x09)  // Reserved for customer-specific usage
+#define NAVIGUIDER_PARAMETER_PAGE_CUSTOM_10       (0x0A)  // Reserved for customer-specific usage
+#define NAVIGUIDER_PARAMETER_PAGE_CUSTOM_11       (0x0B)  // Reserved for customer-specific usage
+#define NAVIGUIDER_PARAMETER_PAGE_CUSTOM_12       (0x0C)  // Reserved for customer-specific usage
+#define NAVIGUIDER_PARAMETER_PAGE_ALGORITHM_KNOBS (0x0D)  // Advanced algorithm configuration parameters
+#define NAVIGUIDER_PARAMETER_PAGE_RESERVED_14     (0x0E)  // Reserved for future use
+#define NAVIGUIDER_PARAMETER_PAGE_RESERVED_15     (0x0F)  // Reserved for future use
 
-#define PARAM_LOAD_REG                                  0x5C
-#define PARAM_PAGE_WARM_START                           2 
 
+/**
+ * SENtral-A2 System Parameters (Parameter Page 1) NAVIGUIDER_PARAMETER_PAGE_SYSTEM
+ * -------------------------------------------------------------------
+ * | Parameter Number | Parameter Name                               |
+ * |-----------------|----------------------------------------------|
+ * | 1              | Non-wakeup FIFO Meta Event Control           |
+ * | 2              | FIFO Control                                 |
+ * | 3              | Sensor Status Bank 0 (Sensors 1-16)         |
+ * | 4              | Sensor Status Bank 1 (Sensors 17-32)        |
+ * | 5              | Sensor Status Bank 2 (Sensors 33-48)        |
+ * | 6              | Sensor Status Bank 3 (Sensors 49-64)        |
+ * | 7              | Sensor Status Bank 4 (Sensors 65-80)        |
+ * | 8              | Sensor Status Bank 5 (Sensors 81-96)        |
+ * | 9              | Sensor Status Bank 6 (Sensors 97-112)       |
+ * | 10             | Sensor Status Bank 7 (Sensors 113-128)      |
+ * | 11-28          | Reserved                                    |
+ * | 29             | Meta Event Control for Wakeup FIFO          |
+ * | 30             | Host IRQ Timestamp                          |
+ * | 31             | Physical Sensor Status                      |
+ * | 32             | Physical Sensors Present                    |
+ * | 33-96          | Physical Sensor Info (Orientation Matrix, etc.) |
+ * -------------------------------------------------------------------
+ */
+
+#define NAVIGUIDER_SYSTEM_PARAMETER_NON_WAKEUP_META_EVENT_CONTROL  (0x01)
+#define NAVIGUIDER_SYSTEM_PARAMETER_FIFO_CONTROL                   (0x02)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0           (0x03)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_1           (0x04)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_2           (0x05)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_3           (0x06)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_4           (0x07)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_5           (0x08)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_6           (0x09)
+#define NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_7           (0x0A)
+#define NAVIGUIDER_SYSTEM_PARAMETER_META_EVENT_CONTROL_WAKEUP_FIFO (0x1D)
+#define NAVIGUIDER_SYSTEM_PARAMETER_HOST_IRQ_TIMESTAMP             (0x1E)
+#define NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSOR_STATUS         (0x1F)
+#define NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSORS_PRESENT       (0x20)
+#define NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSOR_INFO_START     (0x21) // Range 33-96
+
+#define NAVIGUIDER_PARAM_TRANSFER_BIT                  0x80  // Bit 7 in Algorithm Control Register
 
 /* STRUCT Definitions */
 
@@ -307,6 +605,75 @@ struct SensorEventsStruct {
     bool GyroResult;      // Bit [5]
 };
 
+
+/**
+ * @brief Represents the status of a sensor in the Naviguider system.
+ *
+ * This struct provides a compact representation of a sensor's status using bit fields.
+ * Each field corresponds to a specific status flag or mode, allowing efficient access.
+ *
+ * Fields:
+ * - `IsDataAvailable` (1 bit) - Indicates if new data is available (1 = yes, 0 = no).
+ * - `IsI2CNack` (1 bit) - Indicates if the sensor did not acknowledge an I2C transfer (1 = NACK received, 0 = ACK received).
+ * - `IsDeviceIdError` (1 bit) - Indicates if a device ID mismatch error was detected (1 = error, 0 = no error).
+ * - `IsTransientError` (1 bit) - Indicates if a transient error occurred (1 = error, 0 = no error).
+ * - `IsDataLost` (1 bit) - Indicates if data was lost due to a FIFO overflow (1 = data lost, 0 = no data lost).
+ * - `PowerMode` (3 bits) - Represents the sensor’s current power mode:
+ *     - 0: Sensor Not Present
+ *     - 1: Power Down
+ *     - 2: Suspend
+ *     - 3: Self-Test
+ *     - 4: Interrupt Motion
+ *     - 5: One Shot
+ *     - 6: Low Power Active
+ *     - 7: Active
+ */
+struct SensorStatusStruct {
+    uint8_t IsDataAvailable : 1;   // 1-bit flag indicating if data is available
+    uint8_t IsI2CNack : 1;         // 1-bit flag for I2C NACK (no acknowledgment)
+    uint8_t IsDeviceIDError : 1;   // 1-bit flag for device ID mismatch error
+    uint8_t IsTransientError : 1;  // 1-bit flag for transient errors
+    uint8_t IsDataLost : 1;        // 1-bit flag indicating FIFO overflow/data loss
+    uint8_t PowerMode : 3;         // 3-bit value for sensor power mode (0-7)
+};
+
+
+/**
+ * @brief Represents a parameter information structure for accessing Naviguider parameters.
+ *
+ * This structure is used to specify the parameter number and the data size when
+ * reading or writing configuration parameters to the Naviguider system.
+ */
+struct ParameterInformation
+{
+    uint8_t parameterNumber; /**< The unique identifier of the parameter to read or write */
+    uint8_t dataSize;        /**< The size of the parameter data in bytes */
+};
+
+
+
+/**
+ * @brief Struct representing the physical sensors present in the system.
+ * Each field corresponds to a specific sensor ID as defined in the Naviguider documentation.
+ */
+struct SensorsPresentBitmapStruct {
+    bool accelerometer;                 // Sensor ID 0x01
+    bool magnetometer;                  // Sensor ID 0x02
+    bool orientation;                    // Sensor ID 0x03 (deprecated in Android SDK)
+    bool gyroscope;                      // Sensor ID 0x04
+    bool barometer;                      // Sensor ID 0x06
+    bool gravity;                        // Sensor ID 0x09
+    bool linear_acceleration;            // Sensor ID 0x0A
+    bool rotation_vector;                // Sensor ID 0x0B (9DOF)
+
+    bool uncalibrated_magnetometer;      // Sensor ID 0x0E
+    bool game_rotation_vector;           // Sensor ID 0x0F (6DOF - Accel + Gyro)
+    bool uncalibrated_gyroscope;         // Sensor ID 0x10
+    bool geomagnetic_rotation_vector;    // Sensor ID 0x14 (6DOF - Accel + Mag)
+    bool tilt_detector;                  // Sensor ID 0x16
+} ;
+
+
 /* Class Declaration */
 class NaviguiderCompass {
 	
@@ -343,6 +710,45 @@ class NaviguiderCompass {
 		AlgorithmControlStruct algorithmControlValues;	// Saved values read from the Algorithm Control Register	
 		EnableEventsStruct enabledEventsValues;			// Saved values read from the Enabled Events Register
 		uint8_t fifoBuffer[24*1024]; 						// Adjust size as needed (depends on your device's FIFO size)
+		
+		/**
+		 * @brief Converts a given byte array into a human-readable binary string.
+		 * 
+		 * @param data Pointer to the byte array.
+		 * @param numBytes Number of bytes in the array.
+		 * @param outputStr Pointer to a character array where the binary string will be stored.
+		 *                  The caller must ensure it is at least `numBytes * 8 + 1` in size.
+		 * @return Pointer to the outputStr containing the binary representation.
+		 */
+		char* getBinaryStringFromBytes(const void* data, uint8_t numBytes, char* outputStr);
+		
+		/**
+		 * @brief Display the status registers of the Naviguider Compass.
+		 *
+		 * This function reads multiple status-related registers and prints their values 
+		 * in both decimal and binary formats for debugging.
+		 */
+		void printNaviguiderStatusRegister();
+		
+		/**
+		 * @brief Displays the status of all available sensors in the Naviguider system.
+		 *
+		 * This function queries the system parameter page for sensor status banks and
+		 * prints the information in a tabular format.
+		 */
+		void printNaviguiderSensorStatus();
+		
+		/**
+		 * @brief Displays the status information for a given sensor.
+		 *
+		 * This function prints the status of an individual sensor, including its ID,
+		 * data availability, communication errors, transient errors, and power mode.
+		 *
+		 * @param sensorId The ID of the sensor being displayed.
+		 * @param status A pointer to the SensorStatusStruct containing the sensor's status.
+		 */
+		void printSensorStatusRow(uint8_t sensorId, const SensorStatusStruct *status);
+		
 		
 		// Return the fusion coprocessor string, from the registers, parsed into a string.
 		String getFusionCoprocessor();
@@ -387,6 +793,10 @@ class NaviguiderCompass {
 		SensorEventsStruct parseFifo(uint32_t bytesRead);
 		
 		bool enableRawSensors(bool enableMag, bool enableAccel, bool enableGyro);
+		
+		bool writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize);
+		bool readParameter(uint8_t page, uint8_t paramNumber, uint8_t* buffer, uint8_t bufferSize);
+		SensorsPresentBitmapStruct querySensorsPresent();
 };
 
 

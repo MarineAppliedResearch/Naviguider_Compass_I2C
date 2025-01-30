@@ -46,33 +46,42 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 	pinMode(2, INPUT); // Set D2 as input for interrupt
     attachInterrupt(digitalPinToInterrupt(2), NaviguiderCompass::interruptHandler, FALLING); // Attach interrupt to pin 2
 	
-	// Set the MAG, ACCEL, and GYRO Sensor Rates
-	setSensorRates();
+	
 	
 	// Start the CPU
 	startCPU();
 	
+	#ifdef DEBUG
+	printNaviguiderStatusRegister();
+	printNaviguiderSensorStatus();
+	#endif
 	
+	
+	
+	// Set the MAG, ACCEL, and GYRO Sensor Rates
+	////setSensorRates();
+	
+	////querySensorsPresent();
 	
 	// Configure the Algorithm Control Register
-	configAlgorithmControlRegister();
+	////configAlgorithmControlRegister();
 	
 	// Read the 
-	algorithmControlValues = getAlgorithmControlValue();
+	////algorithmControlValues = getAlgorithmControlValue();
 	
 	#ifdef DEBUG
-	printAlgorithmControlValues();
+	////printAlgorithmControlValues();
 	#endif
 	
 	// Enable events
 	// Example: Enable quaternion, error, and CPU reset events
-    configureEnabledEventsRegister();
+    ////configureEnabledEventsRegister();
 	
 	// Read the enabled events register
-	enabledEventsValues = readEnabledEventsRegister();
+	////enabledEventsValues = readEnabledEventsRegister();
 	
 	#ifdef DEBUG
-	printEnabledEventsValues();
+	////printEnabledEventsValues();
 	#endif
 	
 	
@@ -87,6 +96,187 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 }
 
 
+/**
+ * @brief Converts a given byte array into a human-readable binary string.
+ * 
+ * @param data Pointer to the byte array.
+ * @param numBytes Number of bytes in the array.
+ * @param outputStr Pointer to a character array where the binary string will be stored.
+ *                  The caller must ensure it is at least `numBytes * 8 + 1` in size.
+ * @return Pointer to the outputStr containing the binary representation.
+ */
+char* NaviguiderCompass::getBinaryStringFromBytes(const void* data, uint8_t numBytes, char* outputStr) {
+    const uint8_t* byteArray = (const uint8_t*)data;
+    
+    for (uint8_t i = 0; i < numBytes; i++) {
+        for (uint8_t j = 0; j < 8; j++) {
+            outputStr[i * 8 + (7 - j)] = (byteArray[(numBytes - 1) - i] & (1 << j)) ? '1' : '0';
+        }
+    }
+    
+    outputStr[numBytes * 8] = '\0'; // Null-terminate the string
+    return outputStr;
+}
+
+
+/**
+ * @brief Display the status registers of the Naviguider Compass.
+ *
+ * This function reads multiple status-related registers and prints their values 
+ * in both decimal and binary formats for debugging.
+ */
+void NaviguiderCompass::printNaviguiderStatusRegister()
+{
+    uint8_t buf[4];    // Buffer to hold register values
+    char str[17];      // String buffer for binary representation
+    uint16_t bytesAvailable; // Holds the number of bytes remaining
+
+    SerialUSB.println("\n------------ Naviguider Status Register -----------\n");
+
+    // Read and display Host Status, Interrupt Status, and Chip Status
+    uint8_t reg = NAVIGUIDER_REG_HOST_STATUS;
+    if (!m_i2c_dev->write_then_read(&reg, 1, buf, 3, true)) {
+        SerialUSB.println("Failed to read Host Status registers");
+        return;
+    }
+
+    SerialUSB.print("Host Status:       ");
+    SerialUSB.print(buf[0], HEX);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes(buf, 1, str));
+
+    SerialUSB.print("Interrupt Status:  ");
+    SerialUSB.print(buf[1], HEX);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes(buf + 1, 1, str));
+
+    SerialUSB.print("Chip Status:       ");
+    SerialUSB.print(buf[2], HEX);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes(buf + 2, 1, str));
+
+    // Read and display Error Register, Interrupt State, Debug Value, and Debug State
+    reg = NAVIGUIDER_REG_ERROR;
+    if (!m_i2c_dev->write_then_read(&reg, 1, buf, 4, true)) {
+        SerialUSB.println("Failed to read Error Register");
+        return;
+    }
+
+    SerialUSB.print("Error Register:    ");
+    SerialUSB.print(buf[0], HEX);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes(buf, 1, str));
+
+    SerialUSB.print("Interrupt State:   ");
+    SerialUSB.print(buf[1], HEX);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes(buf + 1, 1, str));
+
+    SerialUSB.print("Debug Value:       ");
+    SerialUSB.print(buf[2], HEX);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes(buf + 2, 1, str));
+
+    SerialUSB.print("Debug State:       ");
+    SerialUSB.print(buf[3], HEX);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes(buf + 3, 1, str));
+
+    // Read and display Bytes Remaining (16-bit value)
+    reg = NAVIGUIDER_REG_BYTES_REMAINING_LSB;
+    if (!m_i2c_dev->write_then_read(&reg, 1, (uint8_t*)&bytesAvailable, 2, true)) {
+        SerialUSB.println("Failed to read Bytes Remaining register");
+        return;
+    }
+
+    SerialUSB.print("Bytes Remaining:   ");
+    SerialUSB.print(bytesAvailable);
+    SerialUSB.print(", ");
+    SerialUSB.println(getBinaryStringFromBytes((uint8_t*)&bytesAvailable, 2, str));
+
+    SerialUSB.println();
+}
+
+
+/**
+ * @brief Displays the status of all available sensors in the Naviguider system.
+ *
+ * This function queries the system parameter page for sensor status banks and
+ * prints the information in a tabular format.
+ */
+void NaviguiderCompass::printNaviguiderSensorStatus()
+{
+    SensorStatusStruct currentSensorStatus[32];  // Array to hold sensor statuses
+    ParameterInformation parameters[] = { NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0, 32 };
+
+    // Read sensor status for sensors 1-32
+    if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters[0].parameterNumber, (uint8_t*)currentSensorStatus, sizeof(currentSensorStatus))) {
+        SerialUSB.println("Failed to read sensor status (Bank 0)");
+        return;
+    }
+
+    SerialUSB.println("+------------------------------------------------------------+");
+    SerialUSB.println("|            NAVIGUIDER SENSOR STATUS                        |");
+    SerialUSB.println("+-----+-----------+------+--------+-----------+------+-------+");
+    SerialUSB.println("| ID  | Data      | I2C  | DEVICE | Transient | Data | Power |");
+    SerialUSB.println("|     | Available | NACK | ID ERR | Error     | Lost | Mode  |");
+    SerialUSB.println("+-----+-----------+------+--------+-----------+------+-------+");
+
+    // Display sensor status for sensors 1-32
+    for (uint8_t i = 0; i < 32; i++) {
+        printSensorStatusRow(i + 1, &currentSensorStatus[i]);
+    }
+
+    // Read sensor status for sensors 65-80
+    parameters[0].parameterNumber = NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0 + 4;
+    if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters[0].parameterNumber, (uint8_t*)currentSensorStatus, sizeof(currentSensorStatus))) {
+        SerialUSB.println("Failed to read sensor status (Bank 1)");
+        return;
+    }
+
+    // Display sensor status for sensors 65-80
+    for (uint8_t i = 0; i < 16; i++) {
+        printSensorStatusRow(i + 65, &currentSensorStatus[i]);
+    }
+
+    SerialUSB.println("+-----+-----------+------+--------+-----------+------+-------+");
+}
+
+
+/**
+ * @brief Displays the status information for a given sensor.
+ *
+ * This function prints the status of an individual sensor, including its ID,
+ * data availability, communication errors, transient errors, and power mode.
+ *
+ * @param sensorId The ID of the sensor being displayed.
+ * @param status A pointer to the SensorStatusStruct containing the sensor's status.
+ */
+void NaviguiderCompass::printSensorStatusRow(uint8_t sensorId, const SensorStatusStruct *status)
+{
+     // Ensuring consistent column width by adding leading spaces where necessary
+    SerialUSB.print("| ");
+    if (sensorId < 10) SerialUSB.print(" ");  // Add extra space for single-digit IDs
+    SerialUSB.print(sensorId);
+    SerialUSB.print("  |     ");
+    SerialUSB.print(status->IsDataAvailable);
+    SerialUSB.print("     |  ");
+    SerialUSB.print(status->IsI2CNack);
+    SerialUSB.print("   |   ");
+    SerialUSB.print(status->IsDeviceIDError);
+    SerialUSB.print("    |     ");
+    SerialUSB.print(status->IsTransientError);
+    SerialUSB.print("     |  ");
+    SerialUSB.print(status->IsDataLost);
+    SerialUSB.print("   |   ");
+    SerialUSB.print(status->PowerMode);
+    SerialUSB.println("  |");
+}
+
+
+
+
+/*
 void NaviguiderCompass::readSensors() {
 	int16_t ax, ay, az;
 	uint8_t aaccuracy;
@@ -154,8 +344,10 @@ void NaviguiderCompass::readSensors() {
     // Set the interrupt flag to false now that we've processed the event and sensor data
     interruptFlag = false;
 }
+*/
 
 
+/*
 // Read the fifo event register
 uint32_t NaviguiderCompass::readFifo() {
     uint16_t bytesAvailable = 0;
@@ -179,6 +371,8 @@ uint32_t NaviguiderCompass::readFifo() {
 
     return bytesAvailable; // Return the total bytes read
 }
+
+*/
 
 SensorEventsStruct NaviguiderCompass::parseFifo(uint32_t bytesRead) {
     SensorEventsStruct events = {false, false, false, false, false, false}; // Default all events to false
@@ -224,11 +418,12 @@ void NaviguiderCompass::interruptHandler(){
 	interruptFlag = true;
 	
 	#ifdef DEBUG
-	SerialUSB.println("Interrupt Occurred");
+	//SerialUSB.println("Interrupt Occurred");
 	#endif
 }
 
 
+/*
 bool NaviguiderCompass::configureEnabledEventsRegister() {
     uint8_t registerAddress = NAVIGUIDER_REG_ENABLE_EVENTS; // EnableEvents register address
     uint8_t buffer[1] = { NAVIGUIDER_VALUE_ENABLE_EVENTS }; // Event configuration to write
@@ -248,6 +443,135 @@ bool NaviguiderCompass::configureEnabledEventsRegister() {
 
     return true; // Successfully configured
 }
+*/
+
+/**
+ * @brief Writes a parameter to the Naviguider sensor.
+ * 
+ * @param page Parameter page number (0x54 to select page)
+ * @param paramNumber Parameter number to write
+ * @param data Pointer to the data buffer
+ * @param dataSize Size of the data (max 4 bytes)
+ * @return true if successful, false if failed
+ */
+bool NaviguiderCompass::writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize) {
+    // Set the Parameter Page (Register: 0x54, Data: page)
+    uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+    if (!m_i2c_dev->write(&page, 1, true, &reg, 1)) {
+        SerialUSB.print("Failed to set parameter page (0x54) to: 0x");
+        SerialUSB.println(page, HEX);
+        return false;
+    }
+
+    // Load the Parameter Data into registers 0x5C-0x5F
+    for (uint8_t i = 0; i < dataSize && i < 4; i++) {
+        uint8_t reg = NAVIGUIDER_REG_LOAD_PARAM_BYTE_0 + i;
+        if (!m_i2c_dev->write(&data[i], 1, true, &reg, 1)) {
+            SerialUSB.print("Failed to write LoadParamByte ");
+            SerialUSB.print(i);
+            SerialUSB.print(" (Register: 0x");
+            SerialUSB.print(reg, HEX);
+            SerialUSB.print(") Data: 0x");
+            SerialUSB.println(data[i], HEX);
+            return false;
+        }
+    }
+
+    // Send Parameter Request (Register: 0x64, Data: paramNumber | 0x80)
+    uint8_t paramReq = paramNumber | 0x80; // Set MSB to indicate a 'Load' operation
+    reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+    if (!m_i2c_dev->write(&paramReq, 1, true, &reg, 1)) {
+        SerialUSB.print("Failed to send parameter request (0x64) Data: 0x");
+        SerialUSB.println(paramReq, HEX);
+        return false;
+    }
+
+    // Wait for Acknowledgment (Register: 0x3A)
+    uint8_t ack = 0;
+    reg = NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE;
+    for (int i = 0; i < 100; i++) {  // Retry for up to 1 second
+        if (!m_i2c_dev->write_then_read(&reg, 1, &ack, 1)) {
+            SerialUSB.println("Failed to read Parameter Acknowledge (0x3A)");
+            return false;
+        }
+        if (ack == paramReq) break; // Acknowledgment received
+        delay(10);
+    }
+
+    if (ack != paramReq) {
+        SerialUSB.println("Parameter Acknowledge timeout (0x3A)");
+        return false;
+    }
+
+    SerialUSB.println("Parameter successfully written.");
+    return true;
+}
+
+/**
+ * @brief Reads a parameter from the Naviguider sensor.
+ * 
+ * @param page Parameter page number (0x54 to select page)
+ * @param paramNumber Parameter number to read
+ * @param buffer Pointer to buffer where result will be stored
+ * @param bufferSize Number of bytes to read (max 4)
+ * @return true if successful, false if failed
+ */
+bool NaviguiderCompass::readParameter(uint8_t page, uint8_t paramNumber, uint8_t* buffer, uint8_t bufferSize) {
+    // Set the Parameter Page (Register: 0x54, Data: page)
+    uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+    if (!m_i2c_dev->write(&page, 1, true, &reg, 1)) {
+        SerialUSB.print("Failed to set parameter page (0x54) to: 0x");
+        SerialUSB.println(page, HEX);
+        return false;
+    }
+
+    // Send Parameter Request (Register: 0x64, Data: paramNumber)
+    uint8_t paramReq = paramNumber & 0x7F; // Clear MSB for 'Retrieve' operation
+    reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+    if (!m_i2c_dev->write(&paramReq, 1, true, &reg, 1)) {
+        SerialUSB.print("Failed to send parameter request (0x64) Data: 0x");
+        SerialUSB.println(paramReq, HEX);
+        return false;
+    }
+
+    // Wait for Acknowledgment (Register: 0x3A)
+    uint8_t ack = 0;
+    reg = NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE;
+    for (int i = 0; i < 100; i++) {  // Retry for up to 1 second
+        if (!m_i2c_dev->write_then_read(&reg, 1, &ack, 1)) {
+            SerialUSB.println("Failed to read Parameter Acknowledge (0x3A)");
+            return false;
+        }
+        if (ack == paramReq){
+			SerialUSB.print("Param Ack Received: "); SerialUSB.println(ack, HEX);
+			break; // Acknowledgment received
+		}
+        delay(10);
+    }
+
+    if (ack != paramReq) {
+        SerialUSB.println("Parameter Acknowledge timeout (0x3A)");
+        return false;
+    }
+
+    // Read Parameter Data from registers 0x3B-0x3E
+    for (uint8_t i = 0; i < bufferSize && i < 4; i++) {
+        uint8_t reg = NAVIGUIDER_REG_SAVED_PARAM_BYTE_0 + i;
+        if (!m_i2c_dev->write_then_read(&reg, 1, &buffer[i], 1)) {
+            SerialUSB.print("Failed to read RetrieveParamByte ");
+            SerialUSB.print(i);
+            SerialUSB.print(" (Register: 0x");
+            SerialUSB.print(reg, HEX);
+            SerialUSB.println(")");
+            return false;
+        }
+    }
+
+    SerialUSB.println("Parameter successfully read.");
+    return true;
+}
+
+
 
 
 
@@ -430,6 +754,7 @@ bool NaviguiderCompass::startCPU(){
 }
 
 
+/*
 // Set the sensor rates for MAG, ACCEL, and GYRO
 bool NaviguiderCompass::setSensorRates(){
 	bool returnVal = true;
@@ -514,8 +839,9 @@ bool NaviguiderCompass::setSensorRates(){
 	
 	return returnVal;
 }
+*/
 
-
+/*
 // Configure the Algorithm Control Register
 bool NaviguiderCompass::configAlgorithmControlRegister(){
 	bool returnVal = true;
@@ -677,3 +1003,64 @@ bool NaviguiderCompass::enableRawSensors(bool enableMag, bool enableAccel, bool 
 
     return true;
 }
+*/
+
+
+/**
+ * @brief Queries the physical sensors present on the Naviguider device.
+ *        Reads the Physical Sensors Present bitmap from Parameter Page 1, Parameter 32.
+ * @return SensorsPresentBitmapStruct struct with detected sensors set to true.
+ */
+ /*
+SensorsPresentBitmapStruct NaviguiderCompass::querySensorsPresent() {
+    SensorsPresentBitmapStruct sensors = {0}; // Initialize all fields to false
+
+    uint8_t paramPage = NAVIGUIDER_PARAMETER_PAGE_SYSTEM;   // SYSTEM Parameter Page
+    uint8_t paramNumber = NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSORS_PRESENT; // Parameter 32 - Physical Sensors Present
+    uint8_t bitmap[8] = {0};    // 64-bit sensor presence bitmap
+
+    // Read the sensor presence bitmap from the device
+    if (!readParameter(paramPage, paramNumber, bitmap, sizeof(bitmap))) {
+        #ifdef DEBUG
+        SerialUSB.println("Failed to read Physical Sensors Present bitmap!");
+        #endif
+        return sensors; // Return default struct with all sensors set to false
+    }
+
+    // Parse bitmap to determine available sensors
+    sensors.accelerometer                 = (bitmap[0] & (1 << 0)) != 0;  // Sensor ID 0x01
+    sensors.magnetometer                  = (bitmap[0] & (1 << 1)) != 0;  // Sensor ID 0x02
+    sensors.orientation                    = (bitmap[0] & (1 << 2)) != 0;  // Sensor ID 0x03
+    sensors.gyroscope                      = (bitmap[0] & (1 << 3)) != 0;  // Sensor ID 0x04
+    sensors.barometer                      = (bitmap[0] & (1 << 5)) != 0;  // Sensor ID 0x06
+    sensors.gravity                        = (bitmap[1] & (1 << 1)) != 0;  // Sensor ID 0x09
+    sensors.linear_acceleration            = (bitmap[1] & (1 << 2)) != 0;  // Sensor ID 0x0A
+    sensors.rotation_vector                = (bitmap[1] & (1 << 3)) != 0;  // Sensor ID 0x0B
+
+    sensors.uncalibrated_magnetometer      = (bitmap[1] & (1 << 6)) != 0;  // Sensor ID 0x0E
+    sensors.game_rotation_vector           = (bitmap[1] & (1 << 7)) != 0;  // Sensor ID 0x0F
+    sensors.uncalibrated_gyroscope         = (bitmap[2] & (1 << 0)) != 0;  // Sensor ID 0x10
+    sensors.geomagnetic_rotation_vector    = (bitmap[2] & (1 << 4)) != 0;  // Sensor ID 0x14
+    sensors.tilt_detector                  = (bitmap[2] & (1 << 6)) != 0;  // Sensor ID 0x16
+
+    #ifdef DEBUG
+    SerialUSB.println("Queried Physical Sensors Present:");
+	SerialUSB.print("Bitmap: "); SerialUSB.print(bitmap[0], HEX); SerialUSB.print(" "); SerialUSB.println(bitmap[1], HEX);
+    SerialUSB.print("Accelerometer: "); SerialUSB.println(sensors.accelerometer);
+    SerialUSB.print("Magnetometer: "); SerialUSB.println(sensors.magnetometer);
+    SerialUSB.print("Orientation: "); SerialUSB.println(sensors.orientation);
+    SerialUSB.print("Gyroscope: "); SerialUSB.println(sensors.gyroscope);
+    SerialUSB.print("Barometer: "); SerialUSB.println(sensors.barometer);
+    SerialUSB.print("Gravity: "); SerialUSB.println(sensors.gravity);
+    SerialUSB.print("Linear Acceleration: "); SerialUSB.println(sensors.linear_acceleration);
+    SerialUSB.print("Rotation Vector: "); SerialUSB.println(sensors.rotation_vector);
+    SerialUSB.print("Uncalibrated Magnetometer: "); SerialUSB.println(sensors.uncalibrated_magnetometer);
+    SerialUSB.print("Game Rotation Vector: "); SerialUSB.println(sensors.game_rotation_vector);
+    SerialUSB.print("Uncalibrated Gyroscope: "); SerialUSB.println(sensors.uncalibrated_gyroscope);
+    SerialUSB.print("Geomagnetic Rotation Vector: "); SerialUSB.println(sensors.geomagnetic_rotation_vector);
+    SerialUSB.print("Tilt Detector: "); SerialUSB.println(sensors.tilt_detector);
+    #endif
+
+    return sensors;
+}
+*/
