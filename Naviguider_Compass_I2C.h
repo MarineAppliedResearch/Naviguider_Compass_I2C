@@ -566,6 +566,66 @@
 #define NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSORS_PRESENT       (0x20)
 #define NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSOR_INFO_START     (0x21) // Range 33-96
 
+
+#define NAVIGUIDER_SENSOR_TYPE_NA									0
+#define NAVIGUIDER_SENSOR_TYPE_ACCELEROMETER                       1
+#define NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD                      2
+#define NAVIGUIDER_SENSOR_TYPE_ORIENTATION                         3
+#define NAVIGUIDER_SENSOR_TYPE_GYROSCOPE                           4
+#define NAVIGUIDER_SENSOR_TYPE_LIGHT                               5
+#define NAVIGUIDER_SENSOR_TYPE_PRESSURE                            6
+#define NAVIGUIDER_SENSOR_TYPE_TEMPERATURE                         7
+#define NAVIGUIDER_SENSOR_TYPE_PROXIMITY                           8
+#define NAVIGUIDER_SENSOR_TYPE_GRAVITY                             9
+#define NAVIGUIDER_SENSOR_TYPE_LINEAR_ACCELERATION                 10
+#define NAVIGUIDER_SENSOR_TYPE_ROTATION_VECTOR                     11
+#define NAVIGUIDER_SENSOR_TYPE_RELATIVE_HUMIDITY                   12
+#define NAVIGUIDER_SENSOR_TYPE_AMBIENT_TEMPERATURE                 13
+#define NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD_UNCALIBRATED         14
+#define NAVIGUIDER_SENSOR_TYPE_GAME_ROTATION_VECTOR                15
+#define NAVIGUIDER_SENSOR_TYPE_GYROSCOPE_UNCALIBRATED              16
+#define NAVIGUIDER_SENSOR_TYPE_SIGNIFICANT_MOTION                  17
+#define NAVIGUIDER_SENSOR_TYPE_STEP_DETECTOR                       18
+#define NAVIGUIDER_SENSOR_TYPE_STEP_COUNTER                        19
+#define NAVIGUIDER_SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR         20
+#define NAVIGUIDER_SENSOR_TYPE_HEART_RATE                          21
+#define NAVIGUIDER_SENSOR_TYPE_TILT_DETECTOR                       22
+#define NAVIGUIDER_SENSOR_TYPE_WAKE_GESTURE                        23
+#define NAVIGUIDER_SENSOR_TYPE_GLANCE_GESTURE                      24
+#define NAVIGUIDER_SENSOR_TYPE_PICK_UP_GESTURE                     25
+#define NAVIGUIDER_SENSOR_TYPE_PDR                                 26
+#define NAVIGUIDER_SENSOR_TYPE_RAW_ACCEL                           28  //jm 
+#define NAVIGUIDER_SENSOR_TYPE_RAW_MAG                             29  //jm
+#define NAVIGUIDER_SENSOR_TYPE_RAW_GYRO                            30  //jm
+#define NAVIGUIDER_SENSOR_TYPE_ACTIVITY                            31
+#define NAVIGUIDER_SENSOR_TYPE_CAR_MAG_DATA                        32
+#define NAVIGUIDER_SENSOR_TYPE_VISIBLE_END                         63
+
+
+ // Define wake versions of sensors
+#define NAVIGUIDER_SENSOR_TYPE_ACCELEROMETER_WAKE         65
+#define NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD_WAKE        66
+#define NAVIGUIDER_SENSOR_TYPE_ORIENTATION_WAKE           67
+#define NAVIGUIDER_SENSOR_TYPE_GYROSCOPE_WAKE             68
+#define NAVIGUIDER_SENSOR_TYPE_LIGHT_WAKE                 69
+#define NAVIGUIDER_SENSOR_TYPE_PRESSURE_WAKE              70
+#define NAVIGUIDER_SENSOR_TYPE_TEMPERATURE_WAKE           71
+#define NAVIGUIDER_SENSOR_TYPE_PROXIMITY_WAKE             72
+#define NAVIGUIDER_SENSOR_TYPE_GRAVITY_WAKE               73
+#define NAVIGUIDER_SENSOR_TYPE_LINEAR_ACCEL_WAKE          74
+#define NAVIGUIDER_SENSOR_TYPE_ROTATION_VECTOR_WAKE       75
+#define NAVIGUIDER_SENSOR_TYPE_RELATIVE_HUMIDITY_WAKE     76
+#define NAVIGUIDER_SENSOR_TYPE_AMBIENT_TEMPERATURE_WAKE   77
+#define NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD_UNCAL_WAKE  78
+#define NAVIGUIDER_SENSOR_TYPE_GAME_ROTATION_VECTOR_WAKE  79
+#define NAVIGUIDER_SENSOR_TYPE_GYROSCOPE_UNCAL_WAKE       80
+#define NAVIGUIDER_SENSOR_TYPE_SIGNIFICANT_MOTION_WAKE    81
+#define NAVIGUIDER_SENSOR_TYPE_STEP_DETECTOR_WAKE         82
+#define NAVIGUIDER_SENSOR_TYPE_STEP_COUNTER_WAKE          83
+#define NAVIGUIDER_SENSOR_TYPE_GEOMAG_ROTATION_VECTOR_WAKE 84
+#define NAVIGUIDER_SENSOR_TYPE_CAR_DETECT_WAKE            85
+#define NAVIGUIDER_SENSOR_TYPE_TILT_DETECTOR_WAKE         86
+
 #define NAVIGUIDER_PARAM_TRANSFER_BIT                  0x80  // Bit 7 in Algorithm Control Register
 
 /* STRUCT Definitions */
@@ -862,6 +922,30 @@ struct NaviguiderSensorNamesStruct {
 };
 
 
+struct SensorDescriptionStruct
+{
+    uint8_t sensorId;
+    uint8_t driverId;
+    uint8_t driverVersion;
+    uint8_t power;
+    uint16_t maxRange;
+    uint16_t resolution;
+    uint16_t maxRate;
+    uint16_t fifoReserved;
+    uint16_t fifoMax;
+    uint8_t eventSize;
+    uint8_t minRate;
+} ;
+
+
+struct SensorConfigurationStruct
+{
+    uint16_t sampleRate;
+    uint16_t maxReportLatency;
+    uint16_t changeSensitivity;
+    uint16_t dynamicRange;
+};
+
 /* Class Declaration */
 class NaviguiderCompass {
 	
@@ -897,6 +981,145 @@ class NaviguiderCompass {
 		String fusionCoprocessor;						// String tells us the name of the Fusion Co-Processor Used.
 		static PhysicalSensorStatusStruct PhysicalSensorStatus; // Global instance holding the status of all physical sensors.
 		static NaviguiderSensorNamesStruct NaviguiderSensorNames; // Keep track of sensor names vs sensor id's
+		bool haveSensorInformation = false;
+		uint16_t magMaxRate = 0;
+		uint16_t accelMaxRate = 0;
+		uint16_t gyroMaxRate = 0;
+		SensorDescriptionStruct sensorInformation[128];
+		SensorConfigurationStruct sensorConfiguration[127];
+		ParameterInformation sensorInfoParamList[128] =
+		{
+			{ 0, 16 },
+			{ 1, 16 },
+			{ 2, 16 },
+			{ 3, 16 },
+			{ 4, 16 },
+			{ 5, 16 },
+			{ 6, 16 },
+			{ 7, 16 },
+			{ 8, 16 },
+			{ 9, 16 },
+			{ 10, 16 },
+			{ 11, 16 },
+			{ 12, 16 },
+			{ 13, 16 },
+			{ 14, 16 },
+			{ 15, 16 },
+			{ 16, 16 },
+			{ 17, 16 },
+			{ 18, 16 },
+			{ 19, 16 },
+			{ 20, 16 },
+			{ 21, 16 },
+			{ 22, 16 },
+			{ 23, 16 },
+			{ 24, 16 },
+			{ 25, 16 },
+			{ 26, 16 },
+			{ 27, 16 },
+			{ 28, 16 },
+			{ 29, 16 },
+			{ 30, 16 },
+			{ 31, 16 },
+			{ 32, 16 },
+			{ 33, 16 },
+			{ 34, 16 },
+			{ 35, 16 },
+			{ 36, 16 },
+			{ 37, 16 },
+			{ 38, 16 },
+			{ 39, 16 },
+			{ 40, 16 },
+			{ 41, 16 },
+			{ 42, 16 },
+			{ 43, 16 },
+			{ 44, 16 },
+			{ 45, 16 },
+			{ 46, 16 },
+			{ 47, 16 },
+			{ 48, 16 },
+			{ 49, 16 },
+			{ 50, 16 },
+			{ 51, 16 },
+			{ 52, 16 },
+			{ 53, 16 },
+			{ 54, 16 },
+			{ 55, 16 },
+			{ 56, 16 },
+			{ 57, 16 },
+			{ 58, 16 },
+			{ 59, 16 },
+			{ 60, 16 },
+			{ 61, 16 },
+			{ 62, 16 },
+			{ 63, 16 },
+			{ 64, 16 },
+			{ 65, 16 },
+			{ 66, 16 },
+			{ 67, 16 },
+			{ 68, 16 },
+			{ 69, 16 },
+			{ 70, 16 },
+			{ 71, 16 },
+			{ 72, 16 },
+			{ 73, 16 },
+			{ 74, 16 },
+			{ 75, 16 },
+			{ 76, 16 },
+			{ 77, 16 },
+			{ 78, 16 },
+			{ 79, 16 },
+			{ 80, 16 },
+			{ 81, 16 },
+			{ 82, 16 },
+			{ 83, 16 },
+			{ 84, 16 },
+			{ 85, 16 },
+			{ 86, 16 },
+			{ 87, 16 },
+			{ 88, 16 },
+			{ 89, 16 },
+			{ 90, 16 },
+			{ 91, 16 },
+			{ 92, 16 },
+			{ 93, 16 },
+			{ 94, 16 },
+			{ 95, 16 },
+			{ 96, 16 },
+			{ 97, 16 },
+			{ 98, 16 },
+			{ 99, 16 },
+			{ 100, 16 },
+			{ 101, 16 },
+			{ 102, 16 },
+			{ 103, 16 },
+			{ 104, 16 },
+			{ 105, 16 },
+			{ 106, 16 },
+			{ 107, 16 },
+			{ 108, 16 },
+			{ 109, 16 },
+			{ 110, 16 },
+			{ 111, 16 },
+			{ 112, 16 },
+			{ 113, 16 },
+			{ 114, 16 },
+			{ 115, 16 },
+			{ 116, 16 },
+			{ 117, 16 },
+			{ 118, 16 },
+			{ 119, 16 },
+			{ 120, 16 },
+			{ 121, 16 },
+			{ 122, 16 },
+			{ 123, 16 },
+			{ 124, 16 },
+			{ 125, 16 },
+			{ 126, 16 },
+			{ 127, 16 },
+		};
+		
+		
 		AlgorithmControlStruct algorithmControlValues;	// Saved values read from the Algorithm Control Register	
 		EnableEventsStruct enabledEventsValues;			// Saved values read from the Enabled Events Register
 		uint8_t fifoBuffer[24*1024]; 						// Adjust size as needed (depends on your device's FIFO size)
@@ -990,6 +1213,15 @@ class NaviguiderCompass {
 		 * reads its configuration parameters from the Naviguider.
 		 */
 		void getSensorConfiguration();
+		
+		
+		/**
+		 * @brief Retrieves information for all sensors from the Naviguider.
+		 *
+		 * This function reads sensor information into the `sensorInformation` structure,
+		 * then extracts and stores the maximum data rates for the magnetometer, accelerometer, and gyroscope.
+		 */
+		void getSensorInformation();
 		
 		
 		// Return the fusion coprocessor string, from the registers, parsed into a string.

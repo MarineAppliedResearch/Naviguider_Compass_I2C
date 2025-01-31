@@ -20,7 +20,7 @@
  // Define static member variable
 volatile bool NaviguiderCompass::interruptFlag = false;
 PhysicalSensorStatusStruct NaviguiderCompass::PhysicalSensorStatus;
-NaviguiderSensorNamesStruct NaviguiderCompass::NaviguiderSensorNames;
+NaviguiderSensorNamesStruct NaviguiderCompass::NaviguiderSensorNames = {};
 
 
 // Constructor with host interrupt pin
@@ -215,7 +215,7 @@ void NaviguiderCompass::printNaviguiderSensorStatus()
 
     SensorStatusStruct currentSensorStatus[32];  // Array to hold sensor statuses
     uint8_t sensorStatusBuffer[sizeof(currentSensorStatus)];  // Intermediate byte buffer
-    ParameterInformation parameters[] = { { NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0, sizeof(sensorStatusBuffer) } };
+    ParameterInformation parameters[] =  { NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0, 32 } ;
 
     // Read sensor status for sensors 1-32
     if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters, 1, sensorStatusBuffer)) {
@@ -242,6 +242,7 @@ void NaviguiderCompass::printNaviguiderSensorStatus()
 	uint8_t sensorStatusBuffer2[sizeof(currentSensorStatus)];
     // Read sensor status for sensors 65-80
     parameters[0].ParameterNumber = NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0 + 4;
+    ////parameters[0].ParameterNumber = NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_1;//this was a test
     if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters, 1, sensorStatusBuffer2)) {
         SerialUSB.println("Failed to read sensor status (Bank 1)");
         return;
@@ -387,10 +388,10 @@ void NaviguiderCompass::printPhysicalSensorInformation()
     // Define the parameter structure for querying sensor presence (8-byte bitmap)
     ParameterInformation paramPresence = { 
         NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSORS_PRESENT, // Parameter number for sensor presence bitmap
-        sizeof(physicalSensorPresent) 
+        4
     };
 
-    // Read the bitmap of physical sensors present
+    // Read the bitmap of physical sensors present FAILS HERE FOR SOME REASNO????
     if (!readParameter(
             NAVIGUIDER_PARAMETER_PAGE_SYSTEM, 
             &paramPresence, 
@@ -400,6 +401,7 @@ void NaviguiderCompass::printPhysicalSensorInformation()
         SerialUSB.println("Failed to read physical sensor presence bitmap.");
         return;
     }
+
 
     // Print table header
     SerialUSB.println("\n+----------------------------------+--------+---------+-------+---------+------------+------+");
@@ -415,16 +417,17 @@ void NaviguiderCompass::printPhysicalSensorInformation()
         {
             // Structure to store physical sensor information
             PhysicalSensorInformationStruct sensorInfo;
+            paramPresence.DataSize = 16;
+            paramPresence.ParameterNumber = sensorId + 32;
+           
 
-            // Define the parameter structure for querying this sensor
-            ParameterInformation paramSensorInfo = { 
-                static_cast<uint8_t>(sensorId + 32), sizeof(sensorInfo) 
-            };
 
+            
+            /*
             // Read sensor information
             if (!readParameter(
                     NAVIGUIDER_PARAMETER_PAGE_SYSTEM, 
-                    &paramSensorInfo, 
+                    &paramPresence,
                     1, 
                     (uint8_t*)&sensorInfo)) 
             {
@@ -432,11 +435,34 @@ void NaviguiderCompass::printPhysicalSensorInformation()
                 SerialUSB.println(sensorId);
                 continue;
             }
+            */
+            uint8_t buffer[16];
 
+            if (!readParameter(
+                NAVIGUIDER_PARAMETER_PAGE_SYSTEM,
+                &paramPresence,
+                1,
+                buffer))
+            {
+                SerialUSB.print("Failed to read information for sensor ID: ");
+                SerialUSB.println(sensorId);
+                continue;
+            }
+
+
+            memcpy(&sensorInfo, buffer, sizeof(buffer));
+            
+            
+            
+            
             // Print sensor information in a formatted row
             SerialUSB.print("| ");
+
+            
             SerialUSB.print(getSensorName(sensorInfo.SensorType));
 
+
+           
             // Pad the sensor name to align columns
             for (int i = strlen(getSensorName(sensorInfo.SensorType)); i < 32; i++) SerialUSB.print(" ");
             SerialUSB.print(" |   ");
@@ -458,34 +484,139 @@ void NaviguiderCompass::printPhysicalSensorInformation()
 
             SerialUSB.print(sensorInfo.NumAxes);
             SerialUSB.println(" |");
+            
+            
         }
     }
 
     // Print table footer
     SerialUSB.println("+----------------------------------+--------+---------+-------+---------+------------+------+");
+    
 }
 
 
+
+
+const char* NaviguiderCompass::getSensorName(uint8_t sensorId)
+{
+    switch (sensorId) {
+    case NAVIGUIDER_SENSOR_TYPE_NA:                          return "na";
+    case NAVIGUIDER_SENSOR_TYPE_ACCELEROMETER:               return "accelerometer";
+    case NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD:              return "magnetic field";
+    case NAVIGUIDER_SENSOR_TYPE_ORIENTATION:                 return "orientation";
+    case NAVIGUIDER_SENSOR_TYPE_GYROSCOPE:                   return "gyroscope";
+    case NAVIGUIDER_SENSOR_TYPE_LIGHT:                       return "light";
+    case NAVIGUIDER_SENSOR_TYPE_PRESSURE:                    return "pressure";
+    case NAVIGUIDER_SENSOR_TYPE_TEMPERATURE:                 return "temperature";
+    case NAVIGUIDER_SENSOR_TYPE_PROXIMITY:                   return "proximity";
+    case NAVIGUIDER_SENSOR_TYPE_GRAVITY:                     return "gravity";
+    case NAVIGUIDER_SENSOR_TYPE_LINEAR_ACCELERATION:         return "linear acceleration";
+    case NAVIGUIDER_SENSOR_TYPE_ROTATION_VECTOR:             return "rotation vector";
+    case NAVIGUIDER_SENSOR_TYPE_RELATIVE_HUMIDITY:           return "relative humidity";
+    case NAVIGUIDER_SENSOR_TYPE_AMBIENT_TEMPERATURE:         return "ambient temperature";
+    case NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD_UNCALIBRATED:        return "magnetic field uncalibrated";
+    case NAVIGUIDER_SENSOR_TYPE_GAME_ROTATION_VECTOR:        return "game rotation vector";
+    case NAVIGUIDER_SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:             return "gyroscope uncalibrated";
+    case NAVIGUIDER_SENSOR_TYPE_SIGNIFICANT_MOTION:          return "significant motion";
+    case NAVIGUIDER_SENSOR_TYPE_STEP_DETECTOR:               return "step detector";
+    case NAVIGUIDER_SENSOR_TYPE_STEP_COUNTER:                return "step counter";
+    case NAVIGUIDER_SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR:    return "geomagnetic rotation vector";
+    case NAVIGUIDER_SENSOR_TYPE_HEART_RATE:       return "heart rate -OR- car detector";
+    case NAVIGUIDER_SENSOR_TYPE_TILT_DETECTOR:               return "tilt detector";
+    case NAVIGUIDER_SENSOR_TYPE_WAKE_GESTURE:                return "wake gesture";
+    case NAVIGUIDER_SENSOR_TYPE_GLANCE_GESTURE:              return "glance gesture";
+    case NAVIGUIDER_SENSOR_TYPE_PICK_UP_GESTURE:             return "pick up gesture";
+    case NAVIGUIDER_SENSOR_TYPE_RAW_ACCEL:                   return "raw accel";
+    case NAVIGUIDER_SENSOR_TYPE_RAW_MAG:                     return "raw mag";
+    case NAVIGUIDER_SENSOR_TYPE_RAW_GYRO:                    return "raw gyro";
+    case NAVIGUIDER_SENSOR_TYPE_ACTIVITY:                    return "activity";
+    case NAVIGUIDER_SENSOR_TYPE_CAR_MAG_DATA:         return "car detect mag data (uT)";
+
+        // Wake versions of sensors
+    case NAVIGUIDER_SENSOR_TYPE_ACCELEROMETER_WAKE:          return "accelerometer wake";
+    case NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD_WAKE:         return "magnetic field wake";
+    case NAVIGUIDER_SENSOR_TYPE_ORIENTATION_WAKE:            return "orientation wake";
+    case NAVIGUIDER_SENSOR_TYPE_GYROSCOPE_WAKE:              return "gyroscope wake";
+    case NAVIGUIDER_SENSOR_TYPE_LIGHT_WAKE:                  return "light wake";
+    case NAVIGUIDER_SENSOR_TYPE_PRESSURE_WAKE:               return "pressure wake";
+    case NAVIGUIDER_SENSOR_TYPE_TEMPERATURE_WAKE:            return "temperature wake";
+    case NAVIGUIDER_SENSOR_TYPE_PROXIMITY_WAKE:              return "proximity wake";
+    case NAVIGUIDER_SENSOR_TYPE_GRAVITY_WAKE:                return "gravity wake";
+    case NAVIGUIDER_SENSOR_TYPE_LINEAR_ACCEL_WAKE:           return "linear acceleration wake";
+    case NAVIGUIDER_SENSOR_TYPE_ROTATION_VECTOR_WAKE:        return "rotation vector wake";
+    case NAVIGUIDER_SENSOR_TYPE_RELATIVE_HUMIDITY_WAKE:      return "relative humidity wake";
+    case NAVIGUIDER_SENSOR_TYPE_AMBIENT_TEMPERATURE_WAKE:    return "ambient temperature wake";
+    case NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD_UNCAL_WAKE:   return "magnetic field uncalibrated wake";
+    case NAVIGUIDER_SENSOR_TYPE_GAME_ROTATION_VECTOR_WAKE:   return "game rotation vector wake";
+    case NAVIGUIDER_SENSOR_TYPE_GYROSCOPE_UNCAL_WAKE:        return "gyroscope uncalibrated wake";
+    case NAVIGUIDER_SENSOR_TYPE_SIGNIFICANT_MOTION_WAKE:     return "significant motion wake";
+
+    default:
+        return "unknown sensor";
+    }
+}
 
 
 
 
 /**
- * @brief Retrieves the name of a sensor based on its sensor ID.
- * 
- * This function returns a human-readable string for the given sensor ID.
- * If the ID is out of range, it returns "unknown sensor".
+ * @brief Retrieves sensor configuration for all valid sensors.
  *
- * @param sensorId The ID of the sensor.
- * @return A pointer to a constant string representing the sensor's name.
+ * This function iterates through the sensor information array and, for each valid sensor,
+ * reads its configuration parameters from the Naviguider.
  */
-const char* NaviguiderCompass::getSensorName(uint8_t sensorId) 
+void NaviguiderCompass::getSensorConfiguration()
 {
-    if (sensorId < 128) {
-        return NaviguiderSensorNames.SensorNames[sensorId];
+    // Loop through all sensors
+    for (uint8_t i = 1; i < sizeof(sensorInformation) / sizeof(sensorInformation[0]); i++)
+    { 
+        if (sensorInformation[i].sensorId > 0)
+        {
+            // Define parameter structure for the current sensor
+            ParameterInformation param = { sensorInformation[i].sensorId, sizeof(sensorConfiguration[i]) };
+
+            // Read sensor configuration
+            readParameter(
+                NAVIGUIDER_PARAMETER_PAGE_SENSOR_CONFIG, // Page number
+                &param, // Pointer to parameter information
+                1, // Number of parameters (just one)
+                (uint8_t*)&sensorConfiguration[i] // Output buffer
+            );
+        }
     }
-    return "unknown sensor";
 }
+
+
+
+/**
+ * @brief Retrieves information for all sensors from the Naviguider.
+ *
+ * This function reads sensor information into the `sensorInformation` structure,
+ * then extracts and stores the maximum data rates for the magnetometer, accelerometer, and gyroscope.
+ */
+void NaviguiderCompass::getSensorInformation()
+{
+    // Read sensor information from the Naviguider
+    if (!readParameter(
+            NAVIGUIDER_PARAMETER_PAGE_SENSOR_INFO, // Page number
+            sensorInfoParamList, // Parameter list
+            sizeof(sensorInfoParamList) / sizeof(sensorInfoParamList[0]), // Number of parameters
+            (uint8_t*)sensorInformation)) // Output buffer
+    {
+        SerialUSB.println("Error: Failed to read sensor information.");
+        return;
+    }
+
+    // Mark that we now have valid sensor information
+    haveSensorInformation = true;
+
+    // Extract maximum data rates for individual sensors
+    magMaxRate = sensorInformation[NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD].maxRate;
+    accelMaxRate = sensorInformation[NAVIGUIDER_SENSOR_TYPE_ACCELEROMETER].maxRate;
+    gyroMaxRate = sensorInformation[NAVIGUIDER_SENSOR_TYPE_GYROSCOPE].maxRate;
+}
+
+
 
 
 
@@ -731,69 +862,95 @@ bool NaviguiderCompass::writeParameter(uint8_t page, uint8_t paramNumber, uint8_
  */
 bool NaviguiderCompass::readParameter(uint8_t page, const ParameterInformation* paramList, uint8_t numParams, uint8_t* values)
 {
-    SerialUSB.println("readParameter");
+    // Debugging: Print all arguments passed into readParameter
+    SerialUSB.print("readParameter called with page: 0x");
+    SerialUSB.print(page, HEX);
+    SerialUSB.print(", numParams: ");
+    SerialUSB.println(numParams);
+
+    // Print details of each parameter in paramList
+    for (uint8_t i = 0; i < numParams; i++) {
+        SerialUSB.print("  Param ");
+        SerialUSB.print(i);
+        SerialUSB.print(": ParameterNumber = 0x");
+        SerialUSB.print(paramList[i].ParameterNumber, HEX);
+        SerialUSB.print(", DataSize = ");
+        SerialUSB.println(paramList[i].DataSize);
+    }
+
+    // Print output buffer address
+    SerialUSB.print("  Output buffer address: 0x");
+    SerialUSB.println((uintptr_t)values, HEX);
+
+
     uint8_t pageSelectValue, paramAck;
     uint16_t valueIndex = 0;
 
-    // Step 1: Write the Page Number to Parameter Page Select Register
-    pageSelectValue = page;
-    uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
-    if (!m_i2c_dev->write(&pageSelectValue, 1, false, &reg, 1))
-    {
-        SerialUSB.print("readParameter: Failed to set parameter page (0x54) to: 0x");
-        SerialUSB.println(pageSelectValue, HEX);
-        return false;
-    }
-    SerialUSB.print("readParameter: Successfully set parameter page (0x54) to: 0x");
-    SerialUSB.println(pageSelectValue, HEX);
-
+    
     for (uint8_t i = 0; i < numParams; i++)
     {
+		
+		
+		// Step 1: Write the Page Number to Parameter Page Select Register
+		pageSelectValue = page;
+		uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+		if (!m_i2c_dev->write(&pageSelectValue, 1, true, &reg, 1))
+		{
+			SerialUSB.print("readParameter: Failed to set parameter page (0x54) to: 0x");
+			SerialUSB.println(pageSelectValue, HEX);
+			return false;
+		}
+		SerialUSB.print("readParameter: Successfully set parameter page (0x54) to: 0x");
+		SerialUSB.println(pageSelectValue, HEX);
+
+
+
         // Step 2: Write the Parameter Number to Parameter Request Register
         reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+		
+		SerialUSB.print("writing to register (0x64) a value of: 0x");
+		SerialUSB.println(paramList[i].ParameterNumber, HEX);
+		
         if (!m_i2c_dev->write(&paramList[i].ParameterNumber, 1, false, &reg, 1))
         {
             SerialUSB.println("readParameter: Failed to send Parameter Request");
             return false;
         }
 
-        // Step 3: Poll Parameter Acknowledge Register
-        uint8_t ack = 0;
-        reg = NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE;
-        bool ackReceived = false;
+        // Poll Parameter Acknowledge Register (Use do-while like the original)
+		uint8_t ack = 0;
+		reg = NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE;
+		do {
+			if (!m_i2c_dev->write_then_read(&reg, 1, &ack, 1))
+			{
+				SerialUSB.println("I2C read failed while polling ACK (0x3A)");
+				return false;
+			}
 
-        for (int retry = 0; retry < 100; retry++)
-        {
-            if (!m_i2c_dev->write_then_read(&reg, 1, &ack, 1))
-            {
-                SerialUSB.println("I2C read failed while polling ACK (0x3A)");
-                return false;
-            }
+			if (ack == 0x80)
+			{
+				SerialUSB.println("Error: Parameter request not supported (ACK = 0x80)");
 
-            if (ack == paramList[i].ParameterNumber)
-            {
-                ackReceived = true;
-                break;  // Successfully received the expected acknowledgment
-            }
-            else if (ack == 0x80)
-            {
-                SerialUSB.println("Error: Parameter request not supported (ACK = 0x80)");
-                return false;
-            }
+				// Reset registers
+				uint8_t resetVal = 0;
+				reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+				m_i2c_dev->write(&resetVal, 1, true, &reg, 1);
+				
+				reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+				m_i2c_dev->write(&resetVal, 1, true, &reg, 1);
 
-            delay(10);  // Small delay before retrying
-        }
-
-        if (!ackReceived)
-        {
-            SerialUSB.println("Timeout: Parameter Acknowledge register (0x3A) did not match the request.");
-            return false;
-        }
+				return false;
+			}
+		} while (ack != paramList[i].ParameterNumber);
 
         SerialUSB.print("Parameter Acknowledged: 0x");
         SerialUSB.println(ack, HEX);
 
-        // Step 4: Read the Parameter Data from Saved Parameter Bytes
+        SerialUSB.print("Reading Register NAVIGUIDER_REG_SAVED_PARAM_BYTE_0 (0x3B), into values for return, NUMBYTES :");
+        SerialUSB.println(paramList[i].DataSize);
+
+
+        // Step 4: Read the Parameter Data from Saved Parameter Bytes, i think there's an issue here reading data
         reg = NAVIGUIDER_REG_SAVED_PARAM_BYTE_0;
         if (!m_i2c_dev->write_then_read(&reg, 1, &values[valueIndex], paramList[i].DataSize))
         {
@@ -804,14 +961,36 @@ bool NaviguiderCompass::readParameter(uint8_t page, const ParameterInformation* 
         valueIndex += paramList[i].DataSize;
     }
 
+
+    /*
+
+    SerialUSB.println("// Step 6: End the parameter transfer procedure by writing 0 to the Parameter Request register Writing to: NAVIGUIDER_REG_PARAMETER_REQUEST (0x64)");
+ 
+
     // Step 6: End the parameter transfer procedure by writing 0 to the Parameter Request register
     uint8_t resetVal = 0;
-    reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+    uint8_t reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
     if (!m_i2c_dev->write(&resetVal, 1, true, &reg, 1))
     {
-        SerialUSB.println("Error: Failed to reset PARAMETER_REQUEST");
+        SerialUSB.println("Error: Failed to reset NAVIGUIDER_REG_PARAMETER_REQUEST");
         return false;
     }
+	
+	
+    SerialUSB.println("// Step 7: End the parameter transfer procedure by writing 0 to the Parameter Request register Writing to: NAVIGUIDER_REG_PARAMETER_PAGE_SELECT (0x54)");
+
+
+	// Step 7: End the parameter transfer procedure by writing 0 to the Parameter Request register
+    resetVal = 0;
+    reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+    if (!m_i2c_dev->write(&resetVal, 1, true, &reg, 1))
+    {
+        SerialUSB.println("Error: Failed to reset NAVIGUIDER_REG_PARAMETER_PAGE_SELECT");
+        return false;
+    }
+
+    */
+	
 
     return true;
 }
