@@ -646,8 +646,8 @@ struct SensorStatusStruct {
  */
 struct ParameterInformation
 {
-    uint8_t parameterNumber; /**< The unique identifier of the parameter to read or write */
-    uint8_t dataSize;        /**< The size of the parameter data in bytes */
+    uint8_t ParameterNumber; /**< The unique identifier of the parameter to read or write */
+    uint8_t DataSize;        /**< The size of the parameter data in bytes */
 };
 
 
@@ -679,6 +679,25 @@ struct PhysicalSensorStatusStruct
 };
 
 
+/**
+ * @brief Represents information about a physical sensor, including its type, driver details, 
+ *        power consumption, dynamic range, sample rate, and orientation matrix.
+ */
+struct PhysicalSensorInformationStruct
+{
+    uint8_t SensorType;           /**< Type of sensor, as defined in the Naviguider documentation */
+    uint8_t DriverID;             /**< Unique identifier for the sensor driver */
+    uint8_t DriverVersion;        /**< Version number of the sensor driver */
+    uint8_t CurrentConsumption;   /**< Current consumption in 0.1 mA units */
+    uint16_t DynamicRange;        /**< Current dynamic range setting of the sensor */
+    uint8_t Flags;                /**< Bitfield indicating IRQ enable and power mode */
+    uint8_t Reserved;             /**< Reserved for future use */
+    uint16_t SampleRate;          /**< Current sample rate in Hz */
+    uint8_t NumAxes;              /**< Number of axes the sensor supports */
+    uint8_t OrientationMatrix[5]; /**< Orientation matrix for aligning sensor data */
+};
+
+
 
 /**
  * @brief Struct representing the physical sensors present in the system.
@@ -700,6 +719,147 @@ struct SensorsPresentBitmapStruct {
     bool geomagnetic_rotation_vector;    // Sensor ID 0x14 (6DOF - Accel + Mag)
     bool tilt_detector;                  // Sensor ID 0x16
 } ;
+
+
+
+/**
+ * @brief Struct containing sensor names indexed by sensor ID.
+ *
+ * This struct stores human-readable names for each sensor type
+ * as defined in the Naviguider documentation.
+ */
+struct NaviguiderSensorNamesStruct {
+    const char* SensorNames[128] = {
+        "na",                                       // 0
+        "accelerometer",                            // 1
+        "magnetic field",                           // 2
+        "orientation",                              // 3
+        "gyroscope",                                // 4
+        "light",                                    // 5
+        "pressure",                                 // 6
+        "temperature",                              // 7
+        "proximity",                                // 8
+        "gravity",                                  // 9
+        "linear acceleration",                      // 10
+        "rotation vector",                          // 11
+        "relative humidity",                        // 12
+        "ambient temperature",                      // 13
+        "magnetic field uncalibrated",              // 14
+        "game rotation vector",                     // 15
+        "gyroscope uncalibrated",                   // 16
+        "significant motion",                       // 17
+        "step detector",                            // 18
+        "step counter",                             // 19
+        "geomagnetic rotation vector",              // 20
+        "heart rate -OR- car detector",             // 21
+        "tilt detector",                            // 22
+        "wake gesture",                             // 23
+        "glance gesture",                           // 24
+        "pick up gesture",                          // 25
+        "custom_26",                                // 26
+        "custom_27",                                // 27
+        "raw accel",                                // 28
+        "raw mag",                                  // 29
+        "raw gyro",                                 // 30
+        "activity",                                 // 31
+        "car detect mag data (uT)",                 // 32
+        "custom_33",                                // 33
+        "custom_34",                                // 34
+        "custom_35",                                // 35
+        "custom_36",                                // 36
+        "custom_37",                                // 37
+        "custom_38",                                // 38
+        "custom_39",                                // 39
+        "custom_40",                                // 40
+        "custom_41",                                // 41
+        "custom_42",                                // 42
+        "custom_43",                                // 43
+        "custom_44",                                // 44
+        "custom_45",                                // 45
+        "custom_46",                                // 46
+        "custom_47",                                // 47
+        "custom_48",                                // 48
+        "custom_49",                                // 49
+        "custom_50",                                // 50
+        "custom_51",                                // 51
+        "custom_52",                                // 52
+        "custom_53",                                // 53
+        "custom_54",                                // 54
+        "custom_55",                                // 55
+        "custom_56",                                // 56
+        "custom_57",                                // 57
+        "custom_58",                                // 58
+        "custom_59",                                // 59
+        "custom_60",                                // 60
+        "custom_61",                                // 61
+        "custom_62",                                // 62
+        "custom_63",                                // 63
+        "reserved",                                 // 64
+        "accelerometer wake",                       // 65
+        "magnetic field wake",                      // 66
+        "orientation wake",                         // 67
+        "gyroscope wake",                           // 68
+        "light wake",                               // 69
+        "pressure wake",                            // 70
+        "temperature wake",                         // 71
+        "proximity wake",                           // 72
+        "gravity wake",                             // 73
+        "linear acceleration wake",                 // 74
+        "rotation vector wake",                     // 75
+        "relative humidity wake",                   // 76
+        "ambient temperature wake",                 // 77
+        "magnetic field uncalibrated wake",         // 78
+        "game rotation vector wake",                // 79
+        "gyroscope uncalibrated wake",              // 80
+        "significant motion wake",                  // 81
+        "step detector wake",                       // 82
+        "step counter wake",                        // 83
+        "geomagnetic rotation vector wake",         // 84
+        "car detect wake",                          // 85
+        "tilt detector wake",                       // 86
+        "wake gesture wake",                        // 87
+        "glance gesture wake",                      // 88
+        "pick up gesture wake",                     // 89
+        "custom_26 wake",                           // 90
+        "custom_27 wake",                           // 91
+        "custom_28 wake",                           // 92
+        "raw mag wake",                             // 93
+        "custom_30 wake",                           // 94
+        "activity wake",                            // 95
+        "car detect mag data (uT) wake",            // 96
+        "custom_33 wake",                           // 97
+        "custom_34 wake",                           // 98
+        "custom_35 wake",                           // 99
+        "custom_36 wake",                           // 100
+        "custom_37 wake",                           // 101
+        "custom_38 wake",                           // 102
+        "custom_39 wake",                           // 103
+        "custom_40 wake",                           // 104
+        "custom_41 wake",                           // 105
+        "custom_42 wake",                           // 106
+        "custom_43 wake",                           // 107
+        "custom_44 wake",                           // 108
+        "custom_45 wake",                           // 109
+        "custom_46 wake",                           // 110
+        "custom_47 wake",                           // 111
+        "custom_48 wake",                           // 112
+        "custom_49 wake",                           // 113
+        "custom_50 wake",                           // 114
+        "custom_51 wake",                           // 115
+        "custom_52 wake",                           // 116
+        "custom_53 wake",                           // 117
+        "custom_54 wake",                           // 118
+        "custom_55 wake",                           // 119
+        "custom_56 wake",                           // 120
+        "custom_57 wake",                           // 121
+        "custom_58 wake",                           // 122
+        "custom_59 wake",                           // 123
+        "custom_60 wake",                           // 124
+        "custom_61 wake",                           // 125
+        "custom_62 wake",                           // 126
+        "custom_63 wake"                            // 127
+    };
+};
 
 
 /* Class Declaration */
@@ -736,6 +896,7 @@ class NaviguiderCompass {
 		static volatile bool interruptFlag; 			// Has interrupt happened since we serviced the previous interrupt?, static so we can reference it regardless of class, volatile, because we use an ISR
 		String fusionCoprocessor;						// String tells us the name of the Fusion Co-Processor Used.
 		static PhysicalSensorStatusStruct PhysicalSensorStatus; // Global instance holding the status of all physical sensors.
+		static NaviguiderSensorNamesStruct NaviguiderSensorNames; // Keep track of sensor names vs sensor id's
 		AlgorithmControlStruct algorithmControlValues;	// Saved values read from the Algorithm Control Register	
 		EnableEventsStruct enabledEventsValues;			// Saved values read from the Enabled Events Register
 		uint8_t fifoBuffer[24*1024]; 						// Adjust size as needed (depends on your device's FIFO size)
@@ -800,6 +961,37 @@ class NaviguiderCompass {
 		void printSensorStatusRow(uint8_t sensorId, const SensorStatusStruct *status);
 		
 		
+		/**
+		 * @brief Prints detailed information about each physical sensor present in the system.
+		 * 
+		 * This function queries the physical sensors, retrieves their properties, and prints 
+		 * them in a formatted table including sensor type, driver ID, version, power consumption, 
+		 * dynamic range, sample rate, and number of axes.
+		 */
+		void printPhysicalSensorInformation();
+		
+		
+		/**
+		 * @brief Retrieves the name of a sensor based on its sensor ID.
+		 * 
+		 * This function returns a human-readable string for the given sensor ID.
+		 * If the ID is out of range, it returns "unknown sensor".
+		 *
+		 * @param sensorId The ID of the sensor.
+		 * @return A pointer to a constant string representing the sensor's name.
+		 */
+		const char* getSensorName(uint8_t sensorId);
+		
+		
+		/**
+		 * @brief Retrieves sensor configuration for all valid sensors.
+		 *
+		 * This function iterates through the sensor information array and, for each valid sensor,
+		 * reads its configuration parameters from the Naviguider.
+		 */
+		void getSensorConfiguration();
+		
+		
 		// Return the fusion coprocessor string, from the registers, parsed into a string.
 		String getFusionCoprocessor();
 		
@@ -845,7 +1037,7 @@ class NaviguiderCompass {
 		bool enableRawSensors(bool enableMag, bool enableAccel, bool enableGyro);
 		
 		bool writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize);
-		bool readParameter(uint8_t page, uint8_t paramNumber, uint8_t* buffer, uint8_t bufferSize);
+		bool readParameter(uint8_t page, const ParameterInformation* paramList, uint8_t numParams, uint8_t* values);
 		SensorsPresentBitmapStruct querySensorsPresent();
 };
 

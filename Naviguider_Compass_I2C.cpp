@@ -20,6 +20,7 @@
  // Define static member variable
 volatile bool NaviguiderCompass::interruptFlag = false;
 PhysicalSensorStatusStruct NaviguiderCompass::PhysicalSensorStatus;
+NaviguiderSensorNamesStruct NaviguiderCompass::NaviguiderSensorNames;
 
 
 // Constructor with host interrupt pin
@@ -57,6 +58,7 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 	printNaviguiderStatusRegister();
 	printNaviguiderSensorStatus();
 	printPhysicalSensorStatus();
+	printPhysicalSensorInformation();
 	#endif
 	
 	
@@ -209,14 +211,20 @@ void NaviguiderCompass::printNaviguiderStatusRegister()
  */
 void NaviguiderCompass::printNaviguiderSensorStatus()
 {
+    SerialUSB.println("+--------------------test1----------------------------+");
+
     SensorStatusStruct currentSensorStatus[32];  // Array to hold sensor statuses
-    ParameterInformation parameters[] = { NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0, 32 };
+    uint8_t sensorStatusBuffer[sizeof(currentSensorStatus)];  // Intermediate byte buffer
+    ParameterInformation parameters[] = { { NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0, sizeof(sensorStatusBuffer) } };
 
     // Read sensor status for sensors 1-32
-    if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters[0].parameterNumber, (uint8_t*)currentSensorStatus, sizeof(currentSensorStatus))) {
+    if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters, 1, sensorStatusBuffer)) {
         SerialUSB.println("Failed to read sensor status (Bank 0)");
         return;
     }
+
+    // Copy buffer to properly aligned struct
+    memcpy(currentSensorStatus, sensorStatusBuffer, sizeof(currentSensorStatus));
 
     SerialUSB.println("+------------------------------------------------------------+");
     SerialUSB.println("|            NAVIGUIDER SENSOR STATUS                        |");
@@ -230,12 +238,17 @@ void NaviguiderCompass::printNaviguiderSensorStatus()
         printSensorStatusRow(i + 1, &currentSensorStatus[i]);
     }
 
+
+	uint8_t sensorStatusBuffer2[sizeof(currentSensorStatus)];
     // Read sensor status for sensors 65-80
-    parameters[0].parameterNumber = NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0 + 4;
-    if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters[0].parameterNumber, (uint8_t*)currentSensorStatus, sizeof(currentSensorStatus))) {
+    parameters[0].ParameterNumber = NAVIGUIDER_SYSTEM_PARAMETER_SENSOR_STATUS_BANK_0 + 4;
+    if (!readParameter(NAVIGUIDER_PARAMETER_PAGE_SYSTEM, parameters, 1, sensorStatusBuffer2)) {
         SerialUSB.println("Failed to read sensor status (Bank 1)");
         return;
     }
+
+    // Copy buffer to properly aligned struct
+    memcpy(currentSensorStatus, sensorStatusBuffer2, sizeof(currentSensorStatus));
 
     // Display sensor status for sensors 65-80
     for (uint8_t i = 0; i < 16; i++) {
@@ -244,6 +257,8 @@ void NaviguiderCompass::printNaviguiderSensorStatus()
 
     SerialUSB.println("+-----+-----------+------+--------+-----------+------+-------+");
 }
+
+
 
 
 /**
@@ -306,12 +321,15 @@ void NaviguiderCompass::readPhysicalSensorStatus()
 {
     uint8_t buffer[15]; // Buffer to store the retrieved parameter data
 
+    // Define the parameter information structure
+    ParameterInformation param[] = {{ NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSOR_STATUS, sizeof(buffer) }};
+
     // Attempt to read the physical sensor status parameter
     if (!readParameter(
-            NAVIGUIDER_PARAMETER_PAGE_SYSTEM, 
-            NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSOR_STATUS, 
-            buffer, 
-            sizeof(buffer)))
+            NAVIGUIDER_PARAMETER_PAGE_SYSTEM, // Page number
+            param, // Pointer to a single ParameterInformation structure
+            1, // Number of parameters (only one in this case)
+            buffer)) // Output buffer
     {
         SerialUSB.println("Failed to read physical sensor status.");
         return;
@@ -320,6 +338,7 @@ void NaviguiderCompass::readPhysicalSensorStatus()
     // Copy the buffer data into the PhysicalSensorStatusStruct
     memcpy(&PhysicalSensorStatus, buffer, sizeof(buffer));
 }
+
 
 
 /**
@@ -351,6 +370,123 @@ void NaviguiderCompass::printSensorStatusRow(uint8_t sensorId, const SensorStatu
     SerialUSB.print(status->PowerMode);
     SerialUSB.println("  |");
 }
+
+
+/**
+ * @brief Prints detailed information about each physical sensor present in the system.
+ *
+ * This function queries the physical sensors, retrieves their properties, and prints 
+ * them in a formatted table including sensor type, driver ID, version, power consumption, 
+ * dynamic range, sample rate, and number of axes.
+ */
+void NaviguiderCompass::printPhysicalSensorInformation()
+{
+    // Variable to store the bitmap of present physical sensors (64-bit)
+    uint64_t physicalSensorPresent = 0;
+
+    // Define the parameter structure for querying sensor presence (8-byte bitmap)
+    ParameterInformation paramPresence = { 
+        NAVIGUIDER_SYSTEM_PARAMETER_PHYSICAL_SENSORS_PRESENT, // Parameter number for sensor presence bitmap
+        sizeof(physicalSensorPresent) 
+    };
+
+    // Read the bitmap of physical sensors present
+    if (!readParameter(
+            NAVIGUIDER_PARAMETER_PAGE_SYSTEM, 
+            &paramPresence, 
+            1, 
+            (uint8_t*)&physicalSensorPresent)) 
+    {
+        SerialUSB.println("Failed to read physical sensor presence bitmap.");
+        return;
+    }
+
+    // Print table header
+    SerialUSB.println("\n+----------------------------------+--------+---------+-------+---------+------------+------+");
+    SerialUSB.println("| Sensor                           | Driver | Driver  | Power | Current | Current    | Num  |");
+    SerialUSB.println("|                                  | ID     | Version |       | Range   | Rate       | Axes |");
+    SerialUSB.println("+----------------------------------+--------+---------+-------+---------+------------+------+");
+
+    // Iterate through all possible physical sensors (up to 64)
+    for (uint32_t sensorId = 0; sensorId < 64; sensorId++)
+    {
+        // Check if the sensor is present in the bitmap
+        if (physicalSensorPresent & (1LL << sensorId))
+        {
+            // Structure to store physical sensor information
+            PhysicalSensorInformationStruct sensorInfo;
+
+            // Define the parameter structure for querying this sensor
+            ParameterInformation paramSensorInfo = { 
+                static_cast<uint8_t>(sensorId + 32), sizeof(sensorInfo) 
+            };
+
+            // Read sensor information
+            if (!readParameter(
+                    NAVIGUIDER_PARAMETER_PAGE_SYSTEM, 
+                    &paramSensorInfo, 
+                    1, 
+                    (uint8_t*)&sensorInfo)) 
+            {
+                SerialUSB.print("Failed to read information for sensor ID: ");
+                SerialUSB.println(sensorId);
+                continue;
+            }
+
+            // Print sensor information in a formatted row
+            SerialUSB.print("| ");
+            SerialUSB.print(getSensorName(sensorInfo.SensorType));
+
+            // Pad the sensor name to align columns
+            for (int i = strlen(getSensorName(sensorInfo.SensorType)); i < 32; i++) SerialUSB.print(" ");
+            SerialUSB.print(" |   ");
+
+            SerialUSB.print(sensorInfo.DriverID);
+            SerialUSB.print(" |    ");
+
+            SerialUSB.print(sensorInfo.DriverVersion);
+            SerialUSB.print(" |  ");
+
+            SerialUSB.print(sensorInfo.CurrentConsumption);
+            SerialUSB.print(" |    ");
+
+            SerialUSB.print(sensorInfo.DynamicRange);
+            SerialUSB.print(" |       ");
+
+            SerialUSB.print(sensorInfo.SampleRate);
+            SerialUSB.print(" |  ");
+
+            SerialUSB.print(sensorInfo.NumAxes);
+            SerialUSB.println(" |");
+        }
+    }
+
+    // Print table footer
+    SerialUSB.println("+----------------------------------+--------+---------+-------+---------+------------+------+");
+}
+
+
+
+
+
+
+/**
+ * @brief Retrieves the name of a sensor based on its sensor ID.
+ * 
+ * This function returns a human-readable string for the given sensor ID.
+ * If the ID is out of range, it returns "unknown sensor".
+ *
+ * @param sensorId The ID of the sensor.
+ * @return A pointer to a constant string representing the sensor's name.
+ */
+const char* NaviguiderCompass::getSensorName(uint8_t sensorId) 
+{
+    if (sensorId < 128) {
+        return NaviguiderSensorNames.SensorNames[sensorId];
+    }
+    return "unknown sensor";
+}
+
 
 
 
@@ -524,6 +660,7 @@ bool NaviguiderCompass::configureEnabledEventsRegister() {
 }
 */
 
+
 /**
  * @brief Writes a parameter to the Naviguider sensor.
  * 
@@ -533,6 +670,169 @@ bool NaviguiderCompass::configureEnabledEventsRegister() {
  * @param dataSize Size of the data (max 4 bytes)
  * @return true if successful, false if failed
  */
+bool NaviguiderCompass::writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize) {
+    uint8_t pageSelectValue = page | (dataSize << 4);
+    uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+    if (!m_i2c_dev->write(&pageSelectValue, 1, true, &reg, 1)) {
+        SerialUSB.print("writeParameter: Failed to set parameter page (0x54) to: 0x");
+        SerialUSB.println(page, HEX);
+        return false;
+    }
+
+    // Load the Parameter Data into registers 0x5C-0x5F
+    for (uint8_t i = 0; i < dataSize && i < 4; i++) {
+        uint8_t reg = NAVIGUIDER_REG_LOAD_PARAM_BYTE_0 + i;
+        if (!m_i2c_dev->write(&data[i], 1, true, &reg, 1)) {
+			SerialUSB.println("writeParameter: Failed to Load the Parameter Data into registers 0x5C-0x5F");
+            return false;
+        }
+    }
+
+    // Send Parameter Request (Register: 0x64, Data: paramNumber | 0x80)
+    uint8_t paramReq = paramNumber | 0x80;
+    reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+    if (!m_i2c_dev->write(&paramReq, 1, true, &reg, 1)) {
+		SerialUSB.println("writeParameter: Failed to Send Parameter Request (Register: 0x64, Data: paramNumber | 0x80");
+        return false;
+    }
+
+    // Wait for Acknowledgment
+    uint8_t ack = 0;
+    reg = NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE;
+    do {
+        if (!m_i2c_dev->write_then_read(&reg, 1, &ack, 1)) { return false; }
+        if (ack == 0x80) {  
+            uint8_t resetVal = 0;
+			uint8_t reg_req = NAVIGUIDER_REG_PARAMETER_REQUEST;
+			uint8_t reg_page_select = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+            m_i2c_dev->write(&resetVal, 1, true, &reg_req);
+            m_i2c_dev->write(&resetVal, 1, true, &reg_page_select);
+			SerialUSB.println("writeParameter: Failed to Wait for Acknowledgment");
+            return false;
+        }
+    } while (ack != paramReq);
+
+    return true;
+}
+
+
+
+/**
+ * @brief Reads one or more parameters from the Naviguider sensor.
+ *
+ * This function reads parameter values from the sensor by setting the page, requesting the
+ * parameter, waiting for acknowledgment, and retrieving the saved parameter data.
+ *
+ * @param page The parameter page number to select.
+ * @param paramList Pointer to an array of ParameterInformation structures specifying the parameters to read.
+ * @param numParams The number of parameters to read.
+ * @param values Pointer to the buffer where the retrieved parameter values will be stored.
+ * @return true if successful, false otherwise.
+ */
+bool NaviguiderCompass::readParameter(uint8_t page, const ParameterInformation* paramList, uint8_t numParams, uint8_t* values)
+{
+    SerialUSB.println("readParameter");
+    uint8_t pageSelectValue, paramAck;
+    uint16_t valueIndex = 0;
+
+    // Step 1: Write the Page Number to Parameter Page Select Register
+    pageSelectValue = page;
+    uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
+    if (!m_i2c_dev->write(&pageSelectValue, 1, false, &reg, 1))
+    {
+        SerialUSB.print("readParameter: Failed to set parameter page (0x54) to: 0x");
+        SerialUSB.println(pageSelectValue, HEX);
+        return false;
+    }
+    SerialUSB.print("readParameter: Successfully set parameter page (0x54) to: 0x");
+    SerialUSB.println(pageSelectValue, HEX);
+
+    for (uint8_t i = 0; i < numParams; i++)
+    {
+        // Step 2: Write the Parameter Number to Parameter Request Register
+        reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+        if (!m_i2c_dev->write(&paramList[i].ParameterNumber, 1, false, &reg, 1))
+        {
+            SerialUSB.println("readParameter: Failed to send Parameter Request");
+            return false;
+        }
+
+        // Step 3: Poll Parameter Acknowledge Register
+        uint8_t ack = 0;
+        reg = NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE;
+        bool ackReceived = false;
+
+        for (int retry = 0; retry < 100; retry++)
+        {
+            if (!m_i2c_dev->write_then_read(&reg, 1, &ack, 1))
+            {
+                SerialUSB.println("I2C read failed while polling ACK (0x3A)");
+                return false;
+            }
+
+            if (ack == paramList[i].ParameterNumber)
+            {
+                ackReceived = true;
+                break;  // Successfully received the expected acknowledgment
+            }
+            else if (ack == 0x80)
+            {
+                SerialUSB.println("Error: Parameter request not supported (ACK = 0x80)");
+                return false;
+            }
+
+            delay(10);  // Small delay before retrying
+        }
+
+        if (!ackReceived)
+        {
+            SerialUSB.println("Timeout: Parameter Acknowledge register (0x3A) did not match the request.");
+            return false;
+        }
+
+        SerialUSB.print("Parameter Acknowledged: 0x");
+        SerialUSB.println(ack, HEX);
+
+        // Step 4: Read the Parameter Data from Saved Parameter Bytes
+        reg = NAVIGUIDER_REG_SAVED_PARAM_BYTE_0;
+        if (!m_i2c_dev->write_then_read(&reg, 1, &values[valueIndex], paramList[i].DataSize))
+        {
+            SerialUSB.println("readParameter: Failed to read Parameter Data");
+            return false;
+        }
+
+        valueIndex += paramList[i].DataSize;
+    }
+
+    // Step 6: End the parameter transfer procedure by writing 0 to the Parameter Request register
+    uint8_t resetVal = 0;
+    reg = NAVIGUIDER_REG_PARAMETER_REQUEST;
+    if (!m_i2c_dev->write(&resetVal, 1, true, &reg, 1))
+    {
+        SerialUSB.println("Error: Failed to reset PARAMETER_REQUEST");
+        return false;
+    }
+
+    return true;
+}
+
+
+
+
+
+
+
+
+/**
+ * @brief Writes a parameter to the Naviguider sensor.
+ * 
+ * @param page Parameter page number (0x54 to select page)
+ * @param paramNumber Parameter number to write
+ * @param data Pointer to the data buffer
+ * @param dataSize Size of the data (max 4 bytes)
+ * @return true if successful, false if failed
+ */
+ /*
 bool NaviguiderCompass::writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize) {
     // Set the Parameter Page (Register: 0x54, Data: page)
     uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
@@ -585,6 +885,7 @@ bool NaviguiderCompass::writeParameter(uint8_t page, uint8_t paramNumber, uint8_
     SerialUSB.println("Parameter successfully written.");
     return true;
 }
+*/
 
 /**
  * @brief Reads a parameter from the Naviguider sensor.
@@ -595,11 +896,12 @@ bool NaviguiderCompass::writeParameter(uint8_t page, uint8_t paramNumber, uint8_
  * @param bufferSize Number of bytes to read (max 4)
  * @return true if successful, false if failed
  */
+ /*
 bool NaviguiderCompass::readParameter(uint8_t page, uint8_t paramNumber, uint8_t* buffer, uint8_t bufferSize) {
     // Set the Parameter Page (Register: 0x54, Data: page)
     uint8_t reg = NAVIGUIDER_REG_PARAMETER_PAGE_SELECT;
     if (!m_i2c_dev->write(&page, 1, true, &reg, 1)) {
-        SerialUSB.print("Failed to set parameter page (0x54) to: 0x");
+        SerialUSB.print("Failed to set parameter page "); SerialUSB.print(reg, HEX); SerialUSB.print("  to: 0x");
         SerialUSB.println(page, HEX);
         return false;
     }
@@ -618,18 +920,18 @@ bool NaviguiderCompass::readParameter(uint8_t page, uint8_t paramNumber, uint8_t
     reg = NAVIGUIDER_REG_PARAMETER_ACKNOWLEDGE;
     for (int i = 0; i < 100; i++) {  // Retry for up to 1 second
         if (!m_i2c_dev->write_then_read(&reg, 1, &ack, 1)) {
-            SerialUSB.println("Failed to read Parameter Acknowledge (0x3A)");
+            //SerialUSB.println("Failed to read Parameter Acknowledge (0x3A)");
             return false;
         }
         if (ack == paramReq){
-			SerialUSB.print("Param Ack Received: "); SerialUSB.println(ack, HEX);
+			//SerialUSB.print("Param Ack Received: "); SerialUSB.println(ack, HEX);
 			break; // Acknowledgment received
 		}
         delay(10);
     }
 
     if (ack != paramReq) {
-        SerialUSB.println("Parameter Acknowledge timeout (0x3A)");
+        //SerialUSB.println("Parameter Acknowledge timeout (0x3A)");
         return false;
     }
 
@@ -637,19 +939,19 @@ bool NaviguiderCompass::readParameter(uint8_t page, uint8_t paramNumber, uint8_t
     for (uint8_t i = 0; i < bufferSize && i < 4; i++) {
         uint8_t reg = NAVIGUIDER_REG_SAVED_PARAM_BYTE_0 + i;
         if (!m_i2c_dev->write_then_read(&reg, 1, &buffer[i], 1)) {
-            SerialUSB.print("Failed to read RetrieveParamByte ");
-            SerialUSB.print(i);
-            SerialUSB.print(" (Register: 0x");
-            SerialUSB.print(reg, HEX);
-            SerialUSB.println(")");
+            //SerialUSB.print("Failed to read RetrieveParamByte ");
+            //SerialUSB.print(i);
+            //SerialUSB.print(" (Register: 0x");
+            //SerialUSB.print(reg, HEX);
+            //SerialUSB.println(")");
             return false;
         }
     }
 
-    SerialUSB.println("Parameter successfully read.");
+    //SerialUSB.println("Parameter successfully read.");
     return true;
 }
-
+*/
 
 
 
