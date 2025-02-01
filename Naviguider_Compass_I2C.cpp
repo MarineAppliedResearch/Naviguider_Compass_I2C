@@ -28,6 +28,7 @@ NaviguiderCompass::NaviguiderCompass(int hostInterruptPin)
     : _hostInterruptPin(hostInterruptPin) {
     // Set the host interrupt pin as input
     pinMode(_hostInterruptPin, INPUT);
+    delay(500);  // Wait for sensor startup
 }
 
 // Initialize the device
@@ -59,6 +60,7 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 	printNaviguiderSensorStatus();
 	printPhysicalSensorStatus();
 	printPhysicalSensorInformation();
+    printSensorInformation();
 	#endif
 	
 	
@@ -596,6 +598,8 @@ void NaviguiderCompass::getSensorConfiguration()
  */
 void NaviguiderCompass::getSensorInformation()
 {
+    
+    /*
     // Read sensor information from the Naviguider
     if (!readParameter(
             NAVIGUIDER_PARAMETER_PAGE_SENSOR_INFO, // Page number
@@ -605,7 +609,55 @@ void NaviguiderCompass::getSensorInformation()
     {
         SerialUSB.println("Error: Failed to read sensor information.");
         return;
+    }*/
+
+
+    // loop through every possible sensor to see if we can get info from it.
+    // Define the parameter structure for querying sensor presence (8-byte bitmap)
+    uint8_t numSensors = 33;
+    ParameterInformation paramPresence[numSensors];  // Create an array of 128 entries
+
+    // Populate array using a loop
+    for (uint8_t i = 0; i < numSensors; i++) {
+        paramPresence[i].ParameterNumber = i;  // Assign increasing numbers
+        paramPresence[i].DataSize = 16;        // Constant data size
     }
+
+    // Temporary buffer to store sensor information before copying
+
+    SerialUSB.println("Reading Sensor Information");
+
+
+    
+    //uint8_t sensorInfoBuffer[sizeof(sensorInformation)];
+    uint8_t sensorInfoBuffer[numSensors * 16];
+    
+    if (!readParameter(
+        NAVIGUIDER_PARAMETER_PAGE_SENSOR_INFO,
+        paramPresence, // Parameter list
+        numSensors, // Number of parameters
+        sensorInfoBuffer))
+    {
+        SerialUSB.println("Error: Failed to read sensor information.");
+        return;
+    }
+
+    for (int j = 0; j < sizeof(sensorInfoBuffer) - 1; j++) {
+        SerialUSB.print("sensorInfoBuffer: "); SerialUSB.println(sensorInfoBuffer[j], HEX);
+
+    }
+
+    
+
+    
+
+    SerialUSB.println("DONE READING Reading Sensor Information");
+
+
+    // Copy the data from the buffer into the sensorInformation structure
+    memcpy(sensorInformation, sensorInfoBuffer, sizeof(sensorInfoBuffer));
+    
+    SerialUSB.println("memcopy done");
 
     // Mark that we now have valid sensor information
     haveSensorInformation = true;
@@ -614,9 +666,168 @@ void NaviguiderCompass::getSensorInformation()
     magMaxRate = sensorInformation[NAVIGUIDER_SENSOR_TYPE_MAGNETIC_FIELD].maxRate;
     accelMaxRate = sensorInformation[NAVIGUIDER_SENSOR_TYPE_ACCELEROMETER].maxRate;
     gyroMaxRate = sensorInformation[NAVIGUIDER_SENSOR_TYPE_GYROSCOPE].maxRate;
+    
 }
 
 
+void NaviguiderCompass::printSensorInformation()
+{
+
+    
+
+    // Ensure sensor information is available before proceeding
+    if (!haveSensorInformation) {
+        getSensorInformation();
+    }
+
+    
+
+    // Print table header
+    SerialUSB.println("+------------------------------------------------------------------------------------------+");
+    SerialUSB.println("|                       NaviGuider Sensor Information                                      |");
+    SerialUSB.println("+-----+----------------------------------+---------+-------+-------+-----+----------+------+");
+    SerialUSB.println("| ID  | Sensor                           | Driver  | Power | Range | Res | Rate     | Size |");
+    SerialUSB.println("+-----+----------------------------------+---------+-------+-------+-----+----------+------+");
+
+    
+
+    // Iterate over available sensor information
+    for (uint8_t i = 0; i < (sizeof(sensorInfoParamList) / sizeof(sensorInfoParamList[0])); i++)
+    {
+        if (sensorInformation[i].sensorId > 0)
+        {
+            SerialUSB.print("| ");
+            SerialUSB.print(i);
+            SerialUSB.print("  | ");
+
+            // Print sensor name and align to 32 characters
+            SerialUSB.print(getSensorName(sensorInformation[i].sensorId));
+            uint8_t nameLength = strlen(getSensorName(sensorInformation[i].sensorId));
+            for (uint8_t j = nameLength; j < 32; j++) {
+                SerialUSB.print(" ");
+            }
+            SerialUSB.print(" | ");
+
+            // Print driver version as "X.YYY" format with leading zeros
+            SerialUSB.print(sensorInformation[i].driverId);
+            SerialUSB.print(".");
+            if (sensorInformation[i].driverVersion < 10) {
+                SerialUSB.print("00");
+            }
+            else if (sensorInformation[i].driverVersion < 100) {
+                SerialUSB.print("0");
+            }
+            SerialUSB.print(sensorInformation[i].driverVersion);
+            SerialUSB.print(" | ");
+
+            // Align numerical values properly
+            char buffer[32];  // Buffer to ensure consistent spacing
+
+            sprintf(buffer, "%5u | ", sensorInformation[i].power);
+            SerialUSB.print(buffer);
+
+            sprintf(buffer, "%5u | ", sensorInformation[i].maxRange);
+            SerialUSB.print(buffer);
+
+            sprintf(buffer, "%3u | ", sensorInformation[i].resolution);
+            SerialUSB.print(buffer);
+
+            sprintf(buffer, "%3u-%-4u | ", sensorInformation[i].minRate, sensorInformation[i].maxRate);
+            SerialUSB.print(buffer);
+
+            sprintf(buffer, "%4u |", sensorInformation[i].eventSize);
+            SerialUSB.println(buffer);
+        }
+    }
+
+
+    /*
+    char buffer[128];  // Buffer for formatted output
+    // Iterate over available sensor information
+    for (uint8_t i = 0; i < (sizeof(sensorInfoParamList) / sizeof(sensorInfoParamList[0])); i++)
+    {
+        if (sensorInformation[i].sensorId > 0)
+        {
+            // Get sensor name and pad to 32 characters
+            char sensorName[33];  // 32 characters + null terminator
+            snprintf(sensorName, sizeof(sensorName), "%-32s", getSensorName(sensorInformation[i].sensorId));
+
+            // Format and print the row
+            sprintf(buffer, "| %3u | %s | %3u.%-3u | %5u | %5u | %3u | %3u-%-4u | %4u |",
+                i,
+                sensorName,
+                sensorInformation[i].driverId,
+                sensorInformation[i].driverVersion,
+                sensorInformation[i].power,
+                sensorInformation[i].maxRange,
+                sensorInformation[i].resolution,
+                sensorInformation[i].minRate,
+                sensorInformation[i].maxRate,
+                sensorInformation[i].eventSize);
+
+            SerialUSB.println(buffer);
+        }
+    }
+
+    */
+
+    // Print table footer
+    SerialUSB.println("+-----+----------------------------------+---------+-------+-------+-----+----------+------+");
+
+    
+}
+
+
+
+/*
+void NaviguiderCompass::printSensorConfiguration()
+{
+    // Ensure sensor information is available before proceeding
+    if (!haveSensorInformation) {
+        getSensorInformation();
+    }
+
+    // Retrieve sensor configuration
+    getSensorConfiguration();
+
+    // Print table header
+    SerialUSB.println("+-------------------------------------------------------------------------+");
+    SerialUSB.println("|                          Sensor Configuration                           |");
+    SerialUSB.println("+----------------------------------+-------+-------+-------------+--------+");
+    SerialUSB.println("| Sensor                           | Rate  | Delay | Sensitivity | Range  |");
+    SerialUSB.println("+----------------------------------+-------+-------+-------------+--------+");
+
+    // Iterate over available sensor information
+    for (uint8_t i = 0; i < (sizeof(sensorInformation) / sizeof(sensorInformation[0])); i++)
+    {
+        if (sensorInformation[i].sensorId > 0)
+        {
+            SerialUSB.print("| ");
+            SerialUSB.print(getSensorName(sensorInformation[i].sensorId));
+
+            // Align sensor name to 32 characters
+            uint8_t nameLength = strlen(getSensorName(sensorInformation[i].sensorId));
+            for (uint8_t j = nameLength; j < 32; j++) {
+                SerialUSB.print(" ");
+            }
+
+            SerialUSB.print(" | ");
+            SerialUSB.print(sensorConfiguration[i].sampleRate);
+            SerialUSB.print(" | ");
+            SerialUSB.print(sensorConfiguration[i].maxReportLatency);
+            SerialUSB.print(" | ");
+            SerialUSB.print(sensorConfiguration[i].changeSensitivity);
+            SerialUSB.print(" | ");
+            SerialUSB.print(sensorConfiguration[i].dynamicRange);
+            SerialUSB.println(" |");
+        }
+    }
+
+    // Print table footer
+    SerialUSB.println("+----------------------------------+-------+-------+-------------+--------+");
+}
+
+*/
 
 
 

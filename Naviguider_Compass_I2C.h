@@ -1222,6 +1222,10 @@ class NaviguiderCompass {
 		 * then extracts and stores the maximum data rates for the magnetometer, accelerometer, and gyroscope.
 		 */
 		void getSensorInformation();
+
+		void printSensorConfiguration();
+
+		void printSensorInformation();
 		
 		
 		// Return the fusion coprocessor string, from the registers, parsed into a string.
