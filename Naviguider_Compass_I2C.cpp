@@ -54,6 +54,9 @@ bool NaviguiderCompass::begin(TwoWire *wire, uint8_t address) {
 	
 	// Start the CPU
 	startCPU();
+
+    // Set Scale Factors
+    //setScaleFactors();
 	
 	#ifdef DEBUG
 	printNaviguiderStatusRegister();
@@ -1173,7 +1176,7 @@ bool NaviguiderCompass::readParameter(uint8_t page, const ParameterInformation* 
     }
 
 
-    /*
+    
 
     SerialUSB.println("// Step 6: End the parameter transfer procedure by writing 0 to the Parameter Request register Writing to: NAVIGUIDER_REG_PARAMETER_REQUEST (0x64)");
  
@@ -1200,7 +1203,7 @@ bool NaviguiderCompass::readParameter(uint8_t page, const ParameterInformation* 
         return false;
     }
 
-    */
+    
 	
 
     return true;
