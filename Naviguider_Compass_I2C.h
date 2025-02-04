@@ -25,7 +25,9 @@
 
 
 /* DEBUG */
-#define DEBUG (0x01)						// Are we currently Debugging?
+//#define DEBUG (0x01)						// Are we currently Debugging?
+
+//#define DEBUG_LEVEL_2 (0x01)
 
 /* I2C Addresses */
 #define NAVIGUIDER_ADDRESS (0x28)           // The 7 Bit slave Address
@@ -47,6 +49,7 @@
  *                    Value(m/s2) = x * 0.0005  Where: x is the sensor data X, Y or Z
  */
 #define NAVIGUIDER_REG_ACCELEROMETER (0x01)
+#define NAVIGUIDER_REG_ACCELEROMETER_WAKE (0x41)
 
 
 /** Magnetometer
@@ -63,6 +66,7 @@
  *                    Value(uT) = x * 0.01962  Where: x is the sensor data X, Y or Z
  */
 #define NAVIGUIDER_REG_MAGNETOMETER (0x02)
+#define NAVIGUIDER_REG_MAGNETOMETER_WAKE (0x42)
 
 
 /** Gyroscope
@@ -79,6 +83,7 @@
  *                    Value(rps) = x * 0.0010647  Where: x is the sensor data X, Y or Z
  */
 #define NAVIGUIDER_REG_GYROSCOPE (0x04)
+#define NAVIGUIDER_REG_GYROSCOPE_WAKE (0x44)
 
 
 /** Orientation
@@ -95,6 +100,7 @@
  *                    Value(deg) = x * 0.010986  Where: x is the sensor data Yaw, Pitch, or Roll
  */
 #define NAVIGUIDER_REG_ORIENTATION (0x03)
+#define NAVIGUIDER_REG_ORIENTATION_WAKE (0x43)
 
 
 /** Rotation Vectors
@@ -154,6 +160,11 @@
  * Description:       A Meta Event has occurred
  */
 #define NAVIGUIDER_REG_META_EVENT (0xFE)
+
+#define NAVIGUIDER_SENSOR_TYPE_TIMESTAMP (0xFC) //252
+#define NAVIGUIDER_SENSOR_TYPE_TIMESTAMP_WAKE (0xF6) //246
+#define NAVIGUIDER_SENSOR_TYPE_TIMESTAMP_OVERFLOW (0xFD) //253
+#define NAVIGUIDER_SENSOR_TYPE_TIMESTAMP_OVERFLOW_WAKE  (0xF7)  //247
 
 /**
  * Payload Values for Meta Events (Table From Datasheet)
@@ -946,11 +957,47 @@ struct SensorConfigurationStruct
     uint16_t dynamicRange;
 };
 
+
+struct SensorData3Axis
+{
+	float x;
+	float y;
+	float z;
+	float extraInfo;
+} ;
+
+struct SensorData3Axis_RAW
+{
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	uint8_t status;
+};
+
+struct SensorData4Axis
+{
+	float x;
+	float y;
+	float z;
+	float w;
+	float extraInfo;
+} ;
+
+struct RotationVectorRaw
+{
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	int16_t w;
+	int16_t accuracy;
+} ;
+
 /* Class Declaration */
 class NaviguiderCompass {
 	
 	protected:
 		Adafruit_I2CDevice *m_i2c_dev; ///< I2C bus device
+		static NaviguiderCompass* instance; // Static pointer to instance
 		int _hostInterruptPin;         ///< Pin for the host interrupt
 
 	public:
@@ -963,12 +1010,11 @@ class NaviguiderCompass {
 		// To Be Called Every Loop. Reads the sensor event's, and processes the incoming sensor data.
 		void readSensors();
 
-		// Read accelerometer data
-		bool readAccelerometer(int16_t &x, int16_t &y, int16_t &z, uint8_t &accuracy);
-		
-		bool readMagnometer(int16_t &x, int16_t &y, int16_t &z, uint8_t &accuracy);
-		
-		bool enableSensor(uint8_t sensorId, uint16_t sampleRate);
+		float getHeading();
+		float getPitch();
+		float getRoll();
+		float getHeadingAccuracy();
+		float getYawRate();
 		
 		
 
@@ -1122,7 +1168,14 @@ class NaviguiderCompass {
 		
 		AlgorithmControlStruct algorithmControlValues;	// Saved values read from the Algorithm Control Register	
 		EnableEventsStruct enabledEventsValues;			// Saved values read from the Enabled Events Register
+		SensorData3Axis magData;
+		SensorData3Axis gyroData;
+		SensorData3Axis accelData;
+		SensorData3Axis orientationData;
+
 		uint8_t fifoBuffer[24*1024]; 						// Adjust size as needed (depends on your device's FIFO size)
+
+		
 		
 		/**
 		 * @brief Converts a given byte array into a human-readable binary string.
@@ -1226,6 +1279,90 @@ class NaviguiderCompass {
 		void printSensorConfiguration();
 
 		void printSensorInformation();
+
+		/**
+		 * @brief Static interrupt handler for the Naviguider Compass.
+		 *
+		 * This function is called when an interrupt is triggered on the host interrupt pin.
+		 * Since static methods cannot access instance variables directly, this function
+		 * calls the instance-specific handler via the static instance pointer.
+		 */
+		static void interruptHandler();
+
+		/**
+		 * @brief Instance-specific interrupt handler.
+		 *
+		 * This function is responsible for handling the interrupt triggered by the host interrupt pin.
+		 * It sets the interrupt flag and disables further interrupts until they are re-enabled
+		 * to prevent multiple triggers before the event is processed.
+		 */
+		void handleInterrupt();
+
+
+		/**
+		 * @brief Reads data from the FIFO event register.
+		 *
+		 * This function reads the number of bytes available in the FIFO buffer,
+		 * validates the size to prevent buffer overflows, and then reads the data
+		 * from the FIFO into the `fifoBuffer`.
+		 *
+		 * @return The number of bytes successfully read from the FIFO.
+		 *         Returns 0 if no data is available or if an error occurs.
+		 */
+		uint32_t readFifo();
+
+
+		/**
+		 * @brief Retrieves the name of a meta event based on its event ID.
+		 *
+		 * This function returns a human-readable string for the given meta event ID.
+		 * If the ID is out of the defined range, it returns "Unknown Meta Event".
+		 *
+		 * @param eventId The ID of the meta event.
+		 * @return A pointer to a constant string representing the meta event's name.
+		 */
+		const char* getMetaEventName(uint8_t eventId);
+
+		/**
+		 * @brief Sets the data rate for a given sensor.
+		 *
+		 * This function writes the desired sample rate for a specific sensor by updating
+		 * the appropriate parameter in the sensor configuration page.
+		 *
+		 * @param sensorId The ID of the sensor to configure.
+		 * @param rate The desired sample rate in Hz.
+		 * @return The status of the write operation (success or failure).
+		 */
+		uint32_t setSensorRate(uint8_t sensorId, uint8_t rate);
+
+
+		/**
+		 * @brief Converts raw 3-axis sensor data from a buffer into scaled floating-point values.
+		 *
+		 * This function extracts raw sensor data from the provided buffer, applies a scaling factor,
+		 * and stores the converted values into a `SensorData3Axis` structure.
+		 *
+		 * @param[out] data Pointer to the structure where the processed sensor data will be stored.
+		 * @param[in] scale The scaling factor to apply to the raw data.
+		 * @param[in] buffer Pointer to the buffer containing raw sensor data (must be at least the size of `SensorData3AxisRaw`).
+		 * @return Returns 1 to indicate success.
+		 */
+		uint8_t get3AxisSensorData(SensorData3Axis* data, float scale, uint8_t* buffer);
+
+
+		/**
+		 * @brief Extracts and scales a rotation vector (quaternion) from raw sensor data.
+		 *
+		 * This function reads raw rotation vector data from the provided buffer, applies the
+		 * necessary scaling factor to convert it into a usable quaternion format, and stores
+		 * the processed values in the given SensorData4Axis structure.
+		 *
+		 * @param rv Pointer to the SensorData4Axis structure to store the processed quaternion values.
+		 * @param quaternionScale Scaling factor to convert raw quaternion values to meaningful data.
+		 * @param buffer Pointer to the buffer containing raw sensor data.
+		 * @return uint8_t Returns 1 to indicate success.
+		 */
+		uint8_t getRotationVector(SensorData4Axis* rv, float quaternionScale, uint8_t* buffer);
 		
 		
 		// Return the fusion coprocessor string, from the registers, parsed into a string.
@@ -1261,18 +1398,21 @@ class NaviguiderCompass {
 		// Print Enable Events Register
 		void printEnabledEventsValues();
 		
-		// The Interrupt handler, for when the interrupt pin get's called
-		static void interruptHandler();
+		// Keep track of the timestamp the last event happened at
+		uint32_t	timestamp;
+		uint16_t	timestampTemp[2];
 		
-		// Read the fifo event register
-		uint32_t readFifo();
+		
 		
 		// Parse the Fifo, to see what event it is
-		SensorEventsStruct parseFifo(uint32_t bytesRead);
+		////SensorEventsStruct parseFifo(uint32_t bytesRead);
+		uint32_t parseFifo(uint32_t bytesRead);
+		uint32_t parseNextFifoBlock(uint8_t* buffer, uint32_t bytesRemaining);
 		
 		bool enableRawSensors(bool enableMag, bool enableAccel, bool enableGyro);
 		
-		bool writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize);
+		//bool writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize);
+		uint32_t writeParameter(uint8_t page, const ParameterInformation* paramList, uint8_t numParams, uint8_t* values);
 		bool readParameter(uint8_t page, const ParameterInformation* paramList, uint8_t numParams, uint8_t* values);
 		SensorsPresentBitmapStruct querySensorsPresent();
 };
