@@ -404,19 +404,6 @@
 #define NAVIGUIDER_REG_PASS_THROUGH_CONFIG     (0xA0)
 
 
-/** NOW UNSURE ABOUT THESE VALUES						
-#define NAVIGUIDER_REG_MAG_RATE (0x55)								// Register that stores the Magnometer Output Rate
-#define NAVIGUIDER_REG_ACCEL_RATE (0x56)							// Register that stores the Accelormeter's Output Rate
-#define NAVIGUIDER_REG_GYRO_RATE (0x57)								// Register that stores the Gyro's Output Rate
-#define NAVIGUIDER_REG_QRATE_DIVISOR (0x32)							// Register that stores the QRATE Divisor
-#define NAVIGUIDER_REG_ALGORITHM_CONTROL (0x54)						// Register that sets our algorithmic control, see table for NAVIGUIDER_VALUE_ALGORITHM_CONTROL
-#define NAVIGUIDER_REG_ENABLE_EVENTS (0x33)                         // Register that stores our Enable Events value.
-*/
-
-
-
-/* Register Values */
-
 // Sentral Fusion Co-Processor Product ID's
 #define NAVIGUIDER_SENTRAL_PROCESSOR_PRODUCT_ID_7180 (0x80)     // SENtral Fusion Co-Processor
 #define NAVIGUIDER_SENTRAL_PROCESSOR_PRODUCT_ID_7184 (0x84)		// SENtral-A Fusion Co-Processor
@@ -425,50 +412,6 @@
 #define NAVIGUIDER_SENSOR_ACCEL_RATE (0x0A)						// In Hertz / 10, 0x0A = 100Hz/10 
 #define NAVIGUIDER_SENSOR_GYRO_RATE (0x0F)						// In Hertz / 10, 0x0F = 150Hz/10
 #define NAVIGUIDER_SENSOR_QRATE_DIVISOR (0x01)					// 
-
-/*
- * AlgorithmControl Register (0x54)
- * NAVIGUIDER_VALUE_ALGORITHM_CONTROL
- * --------------------------------------------------------------
- * [0] StandbyEnable          : 1 = Enable Standby state
- * [1] RawDataEnable          : 1 = Raw data provided in MX, MY,
- *                                MZ, AX, AY, AZ, GX, GY, & GZ.
- *                                0 = Scaled sensor data.
- * [2] HPRoutput              : 1 = Heading, pitch, and roll output in QX,
- *                                QY, & QZ. QW = 0.0.
- *                                0 = Quaternion outputs.
- * [3] 6-AxisEnable           : 1 = 6-axis sensor fusion
- *                                0 = 9-axis sensor fusion
- *                                (rev 1.2 or higher firmware only)
- * [5] ENUoutputEnable        : 1 = ENU output
- *                                0 = NED output
- * [6] DisableGyroWhenStill   : 1 = Gyro off during stillness
- *                                0 = Gyro stays on during stillness.
- * [7] Parameter Transfer     : 1 = Initiate Parameter Transfer
- *                                0 = Terminate Parameter Transfer
- * --------------------------------------------------------------
- */
-#define NAVIGUIDER_VALUE_ALGORITHM_CONTROL (0x06)			// 0x06 is RawDataEnable, and HPROutput
-
-
-/*
- * EnableEvents Register (0x33)
- * NAVIGUIDER_VALUE_ENABLE_EVENTS
- * --------------------------------------------------------------
- * A value of '1' indicates an interrupt to the host will be 
- * generated for the corresponding event.
- *
- * [0] CPUReset          : Non-maskable
- * [1] Error             : Error event
- * [2] QuaternionResult  : Quaternion result available
- * [3] MagResult         : Magnetometer result available
- * [4] AccelResult       : Accelerometer result available
- * [5] GyroResult        : Gyroscope result available
- * [6] Reserved          : Reserved for future use
- * [7] Reserved          : Reserved for future use
- * --------------------------------------------------------------
- */
-#define NAVIGUIDER_VALUE_ENABLE_EVENTS (0x3F)			// 0x3F is ALL on but the reserved values
 
 
 /**
@@ -636,12 +579,14 @@
 #define NAVIGUIDER_SENSOR_TYPE_GEOMAG_ROTATION_VECTOR_WAKE 84
 #define NAVIGUIDER_SENSOR_TYPE_CAR_DETECT_WAKE            85
 #define NAVIGUIDER_SENSOR_TYPE_TILT_DETECTOR_WAKE         86
-
 #define NAVIGUIDER_PARAM_TRANSFER_BIT                  0x80  // Bit 7 in Algorithm Control Register
+
 
 /* STRUCT Definitions */
 
+
 /* AlgorithmControlStruct Struct */
+/*
 struct AlgorithmControlStruct {
     bool StandbyEnable;
     bool RawDataEnable;
@@ -652,9 +597,11 @@ struct AlgorithmControlStruct {
     bool ParameterTransfer;
     bool CommError; // Set to true if communication fails
 };
+*/
 
 
 /* EnableEventsStruct Struct */
+/*
 struct EnableEventsStruct {
     bool CPUReset;
     bool Error;
@@ -665,6 +612,7 @@ struct EnableEventsStruct {
     bool ReservedA;
     bool ReservedB;
 };
+*/
 
 // Struct to represent parsed sensor events
 struct SensorEventsStruct {
@@ -792,228 +740,211 @@ struct SensorsPresentBitmapStruct {
 } ;
 
 
-
 /**
- * @brief Struct containing sensor names indexed by sensor ID.
+ * @brief Represents the description and capabilities of a sensor.
  *
- * This struct stores human-readable names for each sensor type
- * as defined in the Naviguider documentation.
+ * This structure contains metadata and configuration details about a sensor,
+ * including its ID, driver information, power consumption, measurement range,
+ * resolution, and data reporting characteristics.
  */
-struct NaviguiderSensorNamesStruct {
-    const char* SensorNames[128] = {
-        "na",                                       // 0
-        "accelerometer",                            // 1
-        "magnetic field",                           // 2
-        "orientation",                              // 3
-        "gyroscope",                                // 4
-        "light",                                    // 5
-        "pressure",                                 // 6
-        "temperature",                              // 7
-        "proximity",                                // 8
-        "gravity",                                  // 9
-        "linear acceleration",                      // 10
-        "rotation vector",                          // 11
-        "relative humidity",                        // 12
-        "ambient temperature",                      // 13
-        "magnetic field uncalibrated",              // 14
-        "game rotation vector",                     // 15
-        "gyroscope uncalibrated",                   // 16
-        "significant motion",                       // 17
-        "step detector",                            // 18
-        "step counter",                             // 19
-        "geomagnetic rotation vector",              // 20
-        "heart rate -OR- car detector",             // 21
-        "tilt detector",                            // 22
-        "wake gesture",                             // 23
-        "glance gesture",                           // 24
-        "pick up gesture",                          // 25
-        "custom_26",                                // 26
-        "custom_27",                                // 27
-        "raw accel",                                // 28
-        "raw mag",                                  // 29
-        "raw gyro",                                 // 30
-        "activity",                                 // 31
-        "car detect mag data (uT)",                 // 32
-        "custom_33",                                // 33
-        "custom_34",                                // 34
-        "custom_35",                                // 35
-        "custom_36",                                // 36
-        "custom_37",                                // 37
-        "custom_38",                                // 38
-        "custom_39",                                // 39
-        "custom_40",                                // 40
-        "custom_41",                                // 41
-        "custom_42",                                // 42
-        "custom_43",                                // 43
-        "custom_44",                                // 44
-        "custom_45",                                // 45
-        "custom_46",                                // 46
-        "custom_47",                                // 47
-        "custom_48",                                // 48
-        "custom_49",                                // 49
-        "custom_50",                                // 50
-        "custom_51",                                // 51
-        "custom_52",                                // 52
-        "custom_53",                                // 53
-        "custom_54",                                // 54
-        "custom_55",                                // 55
-        "custom_56",                                // 56
-        "custom_57",                                // 57
-        "custom_58",                                // 58
-        "custom_59",                                // 59
-        "custom_60",                                // 60
-        "custom_61",                                // 61
-        "custom_62",                                // 62
-        "custom_63",                                // 63
-        "reserved",                                 // 64
-        "accelerometer wake",                       // 65
-        "magnetic field wake",                      // 66
-        "orientation wake",                         // 67
-        "gyroscope wake",                           // 68
-        "light wake",                               // 69
-        "pressure wake",                            // 70
-        "temperature wake",                         // 71
-        "proximity wake",                           // 72
-        "gravity wake",                             // 73
-        "linear acceleration wake",                 // 74
-        "rotation vector wake",                     // 75
-        "relative humidity wake",                   // 76
-        "ambient temperature wake",                 // 77
-        "magnetic field uncalibrated wake",         // 78
-        "game rotation vector wake",                // 79
-        "gyroscope uncalibrated wake",              // 80
-        "significant motion wake",                  // 81
-        "step detector wake",                       // 82
-        "step counter wake",                        // 83
-        "geomagnetic rotation vector wake",         // 84
-        "car detect wake",                          // 85
-        "tilt detector wake",                       // 86
-        "wake gesture wake",                        // 87
-        "glance gesture wake",                      // 88
-        "pick up gesture wake",                     // 89
-        "custom_26 wake",                           // 90
-        "custom_27 wake",                           // 91
-        "custom_28 wake",                           // 92
-        "raw mag wake",                             // 93
-        "custom_30 wake",                           // 94
-        "activity wake",                            // 95
-        "car detect mag data (uT) wake",            // 96
-        "custom_33 wake",                           // 97
-        "custom_34 wake",                           // 98
-        "custom_35 wake",                           // 99
-        "custom_36 wake",                           // 100
-        "custom_37 wake",                           // 101
-        "custom_38 wake",                           // 102
-        "custom_39 wake",                           // 103
-        "custom_40 wake",                           // 104
-        "custom_41 wake",                           // 105
-        "custom_42 wake",                           // 106
-        "custom_43 wake",                           // 107
-        "custom_44 wake",                           // 108
-        "custom_45 wake",                           // 109
-        "custom_46 wake",                           // 110
-        "custom_47 wake",                           // 111
-        "custom_48 wake",                           // 112
-        "custom_49 wake",                           // 113
-        "custom_50 wake",                           // 114
-        "custom_51 wake",                           // 115
-        "custom_52 wake",                           // 116
-        "custom_53 wake",                           // 117
-        "custom_54 wake",                           // 118
-        "custom_55 wake",                           // 119
-        "custom_56 wake",                           // 120
-        "custom_57 wake",                           // 121
-        "custom_58 wake",                           // 122
-        "custom_59 wake",                           // 123
-        "custom_60 wake",                           // 124
-        "custom_61 wake",                           // 125
-        "custom_62 wake",                           // 126
-        "custom_63 wake"                            // 127
-    };
-};
-
-
 struct SensorDescriptionStruct
 {
-    uint8_t sensorId;
-    uint8_t driverId;
-    uint8_t driverVersion;
-    uint8_t power;
-    uint16_t maxRange;
-    uint16_t resolution;
-    uint16_t maxRate;
-    uint16_t fifoReserved;
-    uint16_t fifoMax;
-    uint8_t eventSize;
-    uint8_t minRate;
+	uint8_t sensorId;					// Unique identifier for the sensor 
+	uint8_t driverId;					// Identifier for the sensor's driver 
+	uint8_t driverVersion;				// Version number of the sensor's driver 
+	uint8_t power;						// Power consumption of the sensor (units depend on implementation) 
+	uint16_t maxRange;					// Maximum measurable range of the sensor's output 
+	uint16_t resolution;				// Sensor's resolution, defining its precision 
+	uint16_t maxRate;					// Maximum output data rate of the sensor 
+	uint16_t fifoReserved;				// Number of FIFO slots reserved for this sensor 
+	uint16_t fifoMax;					// Maximum number of FIFO slots available 
+	uint8_t eventSize;					// Size of an individual sensor event data packet in bytes 
+	uint8_t minRate;					// Minimum possible output data rate 
 } ;
 
 
+/**
+ * @brief Represents the configuration settings for a sensor.
+ *
+ * This structure holds various configurable parameters for a sensor,
+ * including its sample rate, reporting latency, sensitivity to changes,
+ * and dynamic range.
+ */
 struct SensorConfigurationStruct
 {
-    uint16_t sampleRate;
-    uint16_t maxReportLatency;
-    uint16_t changeSensitivity;
-    uint16_t dynamicRange;
+	uint16_t sampleRate;			// Sensor data sampling rate (Hz) 
+	uint16_t maxReportLatency;		// Maximum latency before reporting sensor data (ms) 
+	uint16_t changeSensitivity;		// Minimum change required to trigger a report 
+	uint16_t dynamicRange;			// Configurable range of sensor measurements 
 };
 
 
+/**
+ * @brief Represents processed 3-axis sensor data.
+ *
+ * This structure stores sensor readings for three axes (X, Y, Z) in floating-point format.
+ * It is typically used for sensors that require unit conversion or scaling, such as
+ * accelerometers, gyroscopes, and magnetometers.
+ */
 struct SensorData3Axis
 {
-	float x;
-	float y;
-	float z;
-	float extraInfo;
-} ;
-
-struct SensorData3Axis_RAW
-{
-	int16_t x;
-	int16_t y;
-	int16_t z;
-	uint8_t status;
+	float x;			// Processed X-axis sensor value 
+	float y;			// Processed Y-axis sensor value 
+	float z;			// Processed Z-axis sensor value 
+	float extraInfo;	// Additional sensor-specific data (e.g., accuracy, status, or calibration info) 
 };
 
+
+/**
+ * @brief Represents raw 3-axis sensor data.
+ *
+ * This structure holds raw sensor readings for three axes (X, Y, Z) in integer format,
+ * as received directly from the sensor hardware. It is commonly used before applying
+ * scaling or unit conversion.
+ */
+struct SensorData3Axis_RAW
+{
+	int16_t x;			// Raw X-axis sensor reading 
+	int16_t y;			// Raw Y-axis sensor reading 
+	int16_t z;			// Raw Z-axis sensor reading 
+	uint8_t status;		// Status or accuracy indicator for the sensor data 
+};
+
+
+/**
+ * @brief Represents processed 4-axis sensor data.
+ *
+ * This structure stores sensor readings for four axes (X, Y, Z, W) in floating-point format.
+ * It is typically used for quaternion-based sensor data, such as rotation vectors,
+ * which represent orientation in three-dimensional space.
+ */
 struct SensorData4Axis
 {
-	float x;
-	float y;
-	float z;
-	float w;
-	float extraInfo;
-} ;
+	float x;			// Processed X-axis sensor value 
+	float y;			// Processed Y-axis sensor value 
+	float z;			// Processed Z-axis sensor value 
+	float w;			// Processed W-axis sensor value (used for quaternions) 
+	float extraInfo;	// Additional sensor-specific data (e.g., accuracy, status, or calibration info) 
+};
 
+
+/**
+ * @brief Represents raw 4-axis rotation vector data.
+ *
+ * This structure holds raw sensor readings for four axes (X, Y, Z, W) and an accuracy value.
+ * It is commonly used for orientation-related sensors that provide quaternion-based output.
+ */
 struct RotationVectorRaw
 {
-	int16_t x;
-	int16_t y;
-	int16_t z;
-	int16_t w;
-	int16_t accuracy;
-} ;
+	int16_t x;			// Raw X-axis sensor reading 
+	int16_t y;			// Raw Y-axis sensor reading 
+	int16_t z;			// Raw Z-axis sensor reading 
+	int16_t w;			// Raw W-axis sensor reading (quaternion component) 
+	int16_t accuracy;	// Accuracy or confidence level of the rotation vector data 
+};
+
 
 /* Class Declaration */
 class NaviguiderCompass {
 	
 	protected:
-		Adafruit_I2CDevice *m_i2c_dev; ///< I2C bus device
-		static NaviguiderCompass* instance; // Static pointer to instance
-		int _hostInterruptPin;         ///< Pin for the host interrupt
+		Adafruit_I2CDevice *m_i2c_dev;												// I2C bus device
+		static NaviguiderCompass* instance;											// Static pointer to instance
+		int _hostInterruptPin;														// Pin for the host interrupt
 
 	public:
-		// Constructor that accepts a host interrupt pin
+		
+
+		/**
+		 * @brief Constructs a NaviguiderCompass object with a specified interrupt pin.
+		 *
+		 * This constructor initializes the NaviguiderCompass instance and assigns the
+		 * provided host interrupt pin. It also configures the interrupt pin as an input.
+		 *
+		 * @param hostInterruptPin The digital pin number used for receiving sensor interrupts.
+		 */
 		NaviguiderCompass(int hostInterruptPin);
 
-		// Initialize the sensor
+
+		/**
+		 * @brief Initializes the Naviguider Compass device.
+		 *
+		 * This function sets up the I2C communication, configures the interrupt pin,
+		 * starts the CPU, and initializes sensor settings. It also prints debug
+		 * information if enabled.
+		 *
+		 * @param wire Pointer to the TwoWire (I2C) instance to use for communication.
+		 * @param address The I2C address of the Naviguider device.
+		 * @return True if initialization was successful, false otherwise.
+		 */
 		bool begin(TwoWire *wire = &Wire, uint8_t address = NAVIGUIDER_ADDRESS);
 		
-		// To Be Called Every Loop. Reads the sensor event's, and processes the incoming sensor data.
+
+		/**
+		 * @brief Reads sensor data from the Naviguider and processes pending interrupts.
+		 *
+		 * This function checks if an interrupt has been triggered and, if so, processes
+		 * the available sensor data from the FIFO buffer. It then re-enables the interrupt
+		 * to continue capturing new sensor events.
+		 *
+		 * - If an interrupt has occurred, it clears the interrupt flag.
+		 * - Reads available data from the FIFO buffer.
+		 * - Parses the retrieved FIFO data.
+		 * - Reattaches the interrupt handler to resume normal operation.
+		 */
 		void readSensors();
 
+
+		/**
+		 * @brief Retrieves the compass heading in degrees.
+		 *
+		 * The heading is computed from the sensor's orientation data and is wrapped
+		 * within the range of [0, 360] degrees.
+		 *
+		 * @return The heading in degrees.
+		 */
 		float getHeading();
+
+
+		/**
+		 * @brief Retrieves the pitch angle of the sensor.
+		 *
+		 * The pitch represents the sensor's tilt forward or backward.
+		 *
+		 * @return The pitch angle in degrees.
+		 */
 		float getPitch();
+
+
+		/**
+		 * @brief Retrieves the roll angle of the sensor.
+		 *
+		 * The roll represents the sensor's tilt left or right.
+		 *
+		 * @return The roll angle in degrees.
+		 */
 		float getRoll();
+
+
+		/**
+		 * @brief Retrieves the accuracy of the heading measurement.
+		 *
+		 * This value represents the estimated accuracy of the heading
+		 * calculation based on sensor fusion confidence.
+		 *
+		 * @return The heading accuracy in degrees.
+		 */
 		float getHeadingAccuracy();
+
+
+		/**
+		 * @brief Retrieves the yaw rate (rate of rotation around the vertical axis).
+		 *
+		 * The yaw rate is converted from the sensor's raw gyroscope data
+		 * from radians per second to degrees per second.
+		 *
+		 * @return The yaw rate in degrees per second.
+		 */
 		float getYawRate();
 		
 		
@@ -1023,10 +954,29 @@ class NaviguiderCompass {
 	private:
 		TwoWire *_wire;     							// I2C port
 		uint8_t _i2cAddress; 							// I2C address of the device
+
+		/**
+		  * @brief Static flag indicating whether an interrupt has occurred.
+		  *
+		  * This volatile boolean flag is set to true inside the interrupt service routine (ISR)
+		  * when an external interrupt is triggered. It is checked within the main program loop
+		  * to determine if sensor data needs to be processed. Since it is modified within an ISR,
+		  * it is declared as `volatile` to prevent compiler optimizations that could ignore changes
+		  * made outside the main execution flow.
+		  */
 		static volatile bool interruptFlag; 			// Has interrupt happened since we serviced the previous interrupt?, static so we can reference it regardless of class, volatile, because we use an ISR
 		String fusionCoprocessor;						// String tells us the name of the Fusion Co-Processor Used.
+		
+		
+		/**
+		 * @brief Static structure storing the status of physical sensors.
+		 *
+		 * This structure holds real-time status information about physical sensors,
+		 * such as their sample rates, dynamic ranges, and operational states. It is
+		 * used throughout the program to access sensor-specific details and ensure
+		 * correct operation.
+		 */
 		static PhysicalSensorStatusStruct PhysicalSensorStatus; // Global instance holding the status of all physical sensors.
-		static NaviguiderSensorNamesStruct NaviguiderSensorNames; // Keep track of sensor names vs sensor id's
 		bool haveSensorInformation = false;
 		uint16_t magMaxRate = 0;
 		uint16_t accelMaxRate = 0;
@@ -1166,17 +1116,46 @@ class NaviguiderCompass {
 		};
 		
 		
-		AlgorithmControlStruct algorithmControlValues;	// Saved values read from the Algorithm Control Register	
-		EnableEventsStruct enabledEventsValues;			// Saved values read from the Enabled Events Register
-		SensorData3Axis magData;
-		SensorData3Axis gyroData;
-		SensorData3Axis accelData;
-		SensorData3Axis orientationData;
+		/**
+		 * @brief Stores sensor data for various sensor types.
+		 *
+		 * These variables hold the latest sensor data readings for the magnetometer,
+		 * gyroscope, accelerometer, and orientation sensor. Each variable is of type
+		 * SensorData3Axis, which includes X, Y, and Z-axis values along with additional
+		 * sensor-specific metadata.
+		 */
+		SensorData3Axis magData;						// Magnetometer sensor data
+		SensorData3Axis gyroData;						// Gyroscope sensor data
+		SensorData3Axis accelData;						// Accelerometer sensor data
+		SensorData3Axis orientationData;				// Orientation sensor data
 
+
+		/**
+		 * @brief FIFO buffer for storing incoming sensor data.
+		 *
+		 * This buffer temporarily holds sensor data retrieved from the Naviguider's
+		 * FIFO queue before parsing and processing. The buffer size is set to
+		 * accommodate up to 24 KB of sensor data.
+		 */
 		uint8_t fifoBuffer[24*1024]; 						// Adjust size as needed (depends on your device's FIFO size)
 
+
+		/**
+		 * @brief Starts the CPU of the Naviguider sensor.
+		 *
+		 * This function writes to the CHIP_CONTROL register to initiate the CPU start sequence.
+		 * It ensures that the CPU is properly started by sending a specific command via I2C.
+		 *
+		 * - Writes `0x01` to the NAVIGUIDER_REG_CHIP_CONTROL register to start the CPU.
+		 * - Checks if the I2C write operation was successful.
+		 * - Returns `true` if the CPU was successfully started, otherwise returns `false`.
+		 * - If DEBUG mode is enabled, prints messages indicating success or failure.
+		 *
+		 * @return `true` if the CPU started successfully, `false` otherwise.
+		 */
+		bool startCPU();
 		
-		
+
 		/**
 		 * @brief Converts a given byte array into a human-readable binary string.
 		 * 
@@ -1276,6 +1255,21 @@ class NaviguiderCompass {
 		 */
 		void getSensorInformation();
 
+
+		/**
+		 * @brief Prints the sensor configuration details in a formatted table.
+		 *
+		 * This function retrieves and displays the configuration settings of all available sensors.
+		 * It ensures that sensor information is available before proceeding and then queries the
+		 * sensor configuration parameters. The information is printed in a well-aligned table format.
+		 *
+		 * The displayed parameters include:
+		 * - Sensor name
+		 * - Sample rate (Hz)
+		 * - Maximum report latency
+		 * - Sensitivity threshold
+		 * - Dynamic range
+		 */
 		void printSensorConfiguration();
 
 		void printSensorInformation();
@@ -1365,7 +1359,16 @@ class NaviguiderCompass {
 		uint8_t getRotationVector(SensorData4Axis* rv, float quaternionScale, uint8_t* buffer);
 		
 		
-		// Return the fusion coprocessor string, from the registers, parsed into a string.
+		/**
+		 * @brief Queries the fusion co-processor type and returns its name.
+		 *
+		 * This function reads the product ID register of the Naviguider sensor to determine
+		 * the type of fusion co-processor present. It then interprets the retrieved ID
+		 * and returns a corresponding string representation of the co-processor type.
+		 * If communication fails or an unknown ID is found, it returns "NO CO-PROCESSOR FOUND".
+		 *
+		 * @return A string representing the detected fusion co-processor type.
+		 */
 		String getFusionCoprocessor();
 		
 		// Read from the FIFO
@@ -1374,8 +1377,7 @@ class NaviguiderCompass {
 		// Wait for the "Initialized" meta event
 		bool waitForInitializedMetaEvent();
 		
-		// Starts up the CPU
-		bool startCPU();
+		
 		
 		// Set the sensor Rates for MAG, ACCEL, and GYRO
 		bool setSensorRates();
@@ -1384,35 +1386,92 @@ class NaviguiderCompass {
 		bool configAlgorithmControlRegister();
 		
 		// Return, and parse the algorithm control register values
-		AlgorithmControlStruct getAlgorithmControlValue();
+		////AlgorithmControlStruct getAlgorithmControlValue();
 		
 		// Print the algorithm control struct to one line of serial
 		void printAlgorithmControlValues();
 		
 		// Configure the Enable Events Register
 		bool configureEnabledEventsRegister();
-		
-		// Read the enable Events register
-		EnableEventsStruct readEnabledEventsRegister();
-		
-		// Print Enable Events Register
-		void printEnabledEventsValues();
-		
+
 		// Keep track of the timestamp the last event happened at
 		uint32_t	timestamp;
 		uint16_t	timestampTemp[2];
 		
 		
 		
-		// Parse the Fifo, to see what event it is
-		////SensorEventsStruct parseFifo(uint32_t bytesRead);
+		/**
+		 * @brief Parses the FIFO buffer to process sensor data.
+		 *
+		 * This function iterates through the FIFO buffer, extracting and processing
+		 * sensor data in discrete blocks. It calls `parseNextFifoBlock()` to handle
+		 * individual blocks of data while tracking how many bytes have been used.
+		 *
+		 * @param size The total number of bytes available in the FIFO buffer.
+		 * @return The number of bytes successfully processed from the FIFO buffer.
+		 */
 		uint32_t parseFifo(uint32_t bytesRead);
+
+
+		/**
+		 * @brief Parses a single block of data from the FIFO buffer.
+		 *
+		 * This function processes sensor data by identifying the sensor type and extracting
+		 * the corresponding data. It updates relevant sensor structures based on the sensor ID
+		 * found in the first byte of the buffer.
+		 *
+		 * - Handles timestamps and timestamp overflows.
+		 * - Processes meta events for debugging and error handling.
+		 * - Extracts data for various sensors including magnetometer, accelerometer, orientation, gyroscope, and rotation vector.
+		 * - Uses appropriate scaling factors to convert raw sensor values to meaningful units.
+		 *
+		 * @param buffer Pointer to the FIFO buffer containing the data block.
+		 * @param size The size of the remaining FIFO buffer to be processed.
+		 * @return The number of bytes consumed from the buffer while processing the block.
+		 */
 		uint32_t parseNextFifoBlock(uint8_t* buffer, uint32_t bytesRemaining);
 		
 		bool enableRawSensors(bool enableMag, bool enableAccel, bool enableGyro);
 		
-		//bool writeParameter(uint8_t page, uint8_t paramNumber, uint8_t* data, uint8_t dataSize);
+		/**
+		 * @brief Writes one or more parameters to the Naviguider sensor.
+		 *
+		 * This function updates the specified sensor parameters by selecting the appropriate
+		 * parameter page, writing values to the parameter load register, and committing the
+		 * changes through the parameter request register. It then waits for acknowledgment
+		 * from the sensor before proceeding.
+		 *
+		 * The procedure follows these steps:
+		 * 1. Selects the appropriate parameter page.
+		 * 2. Writes the parameter values to the load register.
+		 * 3. Sends a parameter request to apply the changes.
+		 * 4. Polls the parameter acknowledgment register to confirm the write operation.
+		 * 5. Resets the request and page select registers to complete the operation.
+		 *
+		 * If any step fails, the function returns 0 to indicate failure. A return value of
+		 * 1 indicates a successful write.
+		 *
+		 * @param page The parameter page number to modify.
+		 * @param paramList Pointer to an array of ParameterInformation structures specifying the parameters to write.
+		 * @param numParams The number of parameters to write.
+		 * @param values Pointer to the buffer containing the parameter values to be written.
+		 * @return uint32_t 1 if successful, 0 if an error occurred.
+		 */
 		uint32_t writeParameter(uint8_t page, const ParameterInformation* paramList, uint8_t numParams, uint8_t* values);
+		
+
+		/**
+		 * @brief Reads one or more parameters from the Naviguider sensor.
+		 *
+		 * This function reads parameter values from the sensor by setting the page, requesting the
+		 * parameter, waiting for acknowledgment, and retrieving the saved parameter data.
+		 *
+		 * @param page The parameter page number to select.
+		 * @param paramList Pointer to an array of ParameterInformation structures specifying the parameters to read.
+		 * @param numParams The number of parameters to read.
+		 * @param values Pointer to the buffer where the retrieved parameter values will be stored.
+		 * @return true if successful, false otherwise.
+		 */
 		bool readParameter(uint8_t page, const ParameterInformation* paramList, uint8_t numParams, uint8_t* values);
 		SensorsPresentBitmapStruct querySensorsPresent();
 };
