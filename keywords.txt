@@ -2,6 +2,7 @@
 NaviguiderCompass		KEYWORD1
 begin					KEYWORD2
 readAccelerometer		KEYWORD2
+readSensors				KEYWORD2
 
 # Constants
 NAVIGUIDER_ADDRESS		KEYWORD2
