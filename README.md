@@ -6,7 +6,7 @@ An Arduino library for interfacing with the PNI NaviGuider I2C Compass. This lib
 
 This library was developed while integrating the NaviGuider Compass into an ROV sensor package. The process of writing the I2C device driver was documented in an article, which you can read here:
 
-[How to Write an I2C Device Driver: Case Study - The NaviGuider Compass](#) *(https://www.linkedin.com/pulse/how-write-i2c-device-driver-case-study-naviguider-compass-travers-7e0uc/?trackingId=4u84ngkF%2F4s1BDLPCgidVw%3D%3D)*
+[How to Write an I2C Device Driver: Case Study - The NaviGuider Compass](https://www.linkedin.com/pulse/how-write-i2c-device-driver-case-study-naviguider-compass-travers-7e0uc/?trackingId=4u84ngkF%2F4s1BDLPCgidVw%3D%3D)
 
 ## Installation
 
@@ -17,7 +17,7 @@ To install this library:
 3. Open Arduino IDE and include the library in your sketch:
 
    ```cpp
-   #include <Naviguider_Compass_I2C.h>
+   #include "Naviguider_Compass_I2C.h"
    ```
 
 ## Usage
@@ -25,12 +25,9 @@ To install this library:
 A basic example of using the NaviGuider Compass:
 
 ```cpp
-#include <Wire.h>
-#include <Naviguider_Compass_I2C.h>
+#include "Naviguider_Compass_I2C.h"
 
 NaviguiderCompass compass;
-
-#include "Naviguider_Compass_I2C.h"
 
 // Define which pin you will hook to the naviguider interrupt
 #define INTERRUPT_PIN 2
