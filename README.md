@@ -93,3 +93,20 @@ This project is licensed under the BSD License. See the [LICENSE](license.txt) f
 ---
 
 If you have any questions, feel free to open an issue or reach out!
+
+## Version History
+
+### [1.0.1] - 2025-02-05
+- Initial release of the **Naviguider_Compass_I2C** library.
+- Implements basic I2C communication with the **PNI NaviGuider Compass**.
+- Supports reading orientation data from the FIFO buffer.
+- Provides a simple API for initializing the compass and retrieving heading data.
+- Compatible with the Arduino ecosystem.
+
+---
+
+### Upcoming Features
+Planned improvements and future updates:
+- Add support for more advanced sensor configurations.
+- Improve error handling and debugging messages.
+- Expand documentation with more usage examples.
